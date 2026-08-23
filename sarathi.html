@@ -6,7 +6,7 @@
 <title>Setu | Sarathi Parivahan — Ministry of Road Transport &amp; Highways, Government of India</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Nunito+Sans:wght@400;500;600;700&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Mulish:wght@500;600;700;800&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#241F1C;
@@ -28,7 +28,7 @@
     --red:#A3402E;
     --red-soft:#FBEBE6;
     --font-display:'Baloo 2',sans-serif;
-    --font-body:'Nunito Sans',sans-serif;
+    --font-body:'Mulish',sans-serif;
     --font-hi:'Mukta',sans-serif;
     --radius:14px;
     --radius-sm:10px;
@@ -44,7 +44,7 @@
     background-size:auto,auto,15px 15px;
     background-repeat:no-repeat,no-repeat,repeat;
     background-attachment:fixed,fixed,scroll;
-    color:var(--ink);font-family:var(--font-body);font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased;
+    color:var(--ink);font-family:var(--font-body);font-size:16px;font-weight:500;line-height:1.6;-webkit-font-smoothing:antialiased;
   }
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
   a{color:var(--indigo);}
@@ -93,7 +93,7 @@
 
   h1{font-family:var(--font-display);font-size:24px;font-weight:600;color:var(--indigo);margin:0 0 6px;letter-spacing:-.01em;}
   h2{font-size:17px;font-weight:600;margin:0 0 4px;color:var(--ink);}
-  p.lead{color:var(--ink-soft);margin:0 0 22px;font-size:14.5px;}
+  p.lead{color:var(--ink-soft);margin:0 0 22px;font-size:15.5px;font-weight:600;}
 
   .panel{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);margin-bottom:18px;overflow:hidden;}
   .panel-head{font-size:13.5px;font-weight:600;padding:13px 18px;border-bottom:1px solid var(--rule-soft);display:flex;align-items:center;justify-content:space-between;color:var(--indigo);background:var(--indigo-soft);}
@@ -105,7 +105,7 @@
   .field .req{color:var(--red);}
   .field input{width:100%;height:46px;padding:0 14px;border:1px solid var(--rule);border-radius:var(--radius-sm);font-size:15px;background:var(--surface);color:var(--ink);font-family:var(--font-body);}
   .field input:focus{border-color:var(--indigo);}
-  .hint{font-size:12.5px;color:var(--ink-faint);margin-top:6px;}
+  .hint{font-size:13.5px;font-weight:600;color:var(--ink-soft);margin-top:6px;}
   .error-text{font-size:12.5px;color:var(--red);margin-top:6px;font-weight:600;}
   .error-text[hidden]{display:none;}
 
@@ -201,79 +201,73 @@
 
   /* ---------- HOME ---------- */
   .home-wrap{max-width:1040px;margin:0 auto;padding:0 20px 48px;}
-  .hero{position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(135deg,var(--indigo) 0%,var(--indigo-deep) 100%);color:#fff;border-radius:0 0 24px 24px;padding:54px 24px 42px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(290px,.95fr);gap:22px;align-items:stretch;}
-  .hero-mark{position:absolute;inset:0;width:100%;height:100%;opacity:.32;pointer-events:none;animation:mark-float 10s ease-in-out infinite;}
-  .hero-network{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.52;}
-  .hero-network .road-surface{fill:none;stroke:rgba(255,255,255,.055);stroke-width:34;stroke-linecap:round;}
-  .hero-network .road-edge{fill:none;stroke:rgba(255,255,255,.18);stroke-width:1;stroke-linecap:round;}
-  .hero-network .road-lane{fill:none;stroke:rgba(255,255,255,.46);stroke-width:1.3;stroke-linecap:round;stroke-dasharray:7 13;}
-  .hero-network .rto-waypoint{fill:var(--indigo);stroke:rgba(255,255,255,.54);stroke-width:1.4;}
-  .hero-network .rto-waypoint-core{fill:#fff;opacity:.74;}
-  .hero-network .road-vehicle{filter:drop-shadow(0 0 6px rgba(255,183,77,.7));}
-  .hero-network .road-vehicle rect{fill:#FFB74D;}
-  .hero-network .road-vehicle circle{fill:var(--indigo-deep);stroke:rgba(255,255,255,.55);stroke-width:.7;}
-  @keyframes mark-float{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
-  @media (prefers-reduced-motion: reduce){.hero-mark{animation:none;}}
+  .hero{position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(135deg,var(--indigo) 0%,var(--indigo-deep) 100%);color:#fff;border-radius:0 0 24px 24px;padding:54px 24px 42px;}
+  .hero-inner{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.05fr) 74px minmax(290px,.95fr);gap:40px;align-items:stretch;}
+  .hero-road{position:relative;overflow:hidden;display:flex;justify-content:space-between;gap:8px;padding:4px 2px;}
+  .hero-road-lane{position:relative;flex:1;}
+  .hero-road-lane.lane-a{--lane-x:32%;}
+  .hero-road-lane.lane-b{--lane-x:54%;}
+  .hero-road-lane.lane-c{--lane-x:70%;}
+  .hero-road-lane::before{content:"";position:absolute;top:0;bottom:0;left:var(--lane-x,50%);width:2px;transform:translateX(-50%);border-radius:2px;background-image:repeating-linear-gradient(to bottom, rgba(255,255,255,.38) 0 8px, transparent 8px 18px);background-size:100% 36px;}
+  .hero-road-car{position:absolute;left:var(--lane-x,50%);top:-14%;transform:translateX(-50%);filter:drop-shadow(0 0 5px currentColor);animation-name:hero-car-travel;animation-timing-function:linear;animation-iteration-count:infinite;}
+  .hero-road-car.c-saffron{color:var(--saffron);}
+  .hero-road-car.c-cream{color:#F3EFE4;}
+  .hero-road-car.c-green{color:var(--green);}
+  @keyframes hero-car-travel{from{top:-14%;}to{top:114%;}}
+  @media (prefers-reduced-motion: reduce){.hero-road-car{animation:none;top:50%;transform:translate(-50%,-50%);}}
   .hero-content{position:relative;z-index:1;max-width:560px;min-width:0;display:flex;flex-direction:column;justify-content:center;padding:10px 0;}
-  .hero h1{font-family:var(--font-display);font-weight:600;color:#fff;font-size:clamp(26px,4vw,38px);margin:0 0 14px;line-height:1.2;animation:fadeUp .6s ease both;}
-  .hero p{color:#D7DEEF;font-size:14.5px;margin:0 0 24px;max-width:440px;line-height:1.65;animation:fadeUp .6s .1s ease both;}
-  .hero-cta{display:flex;gap:10px;flex-wrap:wrap;animation:fadeUp .6s .2s ease both;}
+  .hero h1{font-family:var(--font-display);font-weight:600;color:#fff;font-size:clamp(32px,4.8vw,46px);margin:0 0 18px;line-height:1.18;animation:fadeUp .6s ease both;}
+  .hero p{color:#D7DEEF;font-size:15.5px;margin:0 0 28px;max-width:460px;line-height:1.65;animation:fadeUp .6s .1s ease both;}
+  .hero-cta{display:flex;gap:12px;flex-wrap:wrap;animation:fadeUp .6s .2s ease both;}
   .hero-cta .btn{width:auto;}
   .hero-cta .btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.45);}
   .hero-cta .btn.ghost:hover{background:rgba(255,255,255,.1);}
-  .hero-visual{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;gap:18px;min-height:100%;padding:22px 20px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.13);box-shadow:inset 0 1px 0 rgba(255,255,255,.07);backdrop-filter:blur(8px);isolation:isolate;animation:infographic-in .8s .18s cubic-bezier(.2,.75,.25,1) both;}
-  .hero-visual::after{content:"";position:absolute;left:20px;right:20px;top:50px;border-top:1px solid rgba(255,255,255,.12);pointer-events:none;z-index:0;}
+  .hero-visual{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;gap:22px;min-height:100%;padding:28px 24px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.13);box-shadow:inset 0 1px 0 rgba(255,255,255,.07);backdrop-filter:blur(8px);isolation:isolate;animation:infographic-in .8s .18s cubic-bezier(.2,.75,.25,1) both;}
+  .hero-visual::after{content:"";position:absolute;left:24px;right:24px;top:58px;border-top:1px solid rgba(255,255,255,.12);pointer-events:none;z-index:0;}
   .hero-visual > *{position:relative;z-index:1;}
   .hero-visual-head{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#E6ECFA;font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;}
   .hero-visual-head .chip{padding:0;color:#BAC6E1;font-size:9px;letter-spacing:.1em;}
   .hero-visual-head .chip::before{content:"";display:inline-block;width:5px;height:5px;margin:0 6px 1px 0;border-radius:50%;background:#81C995;}
   .hero .stat-strip{margin:0;padding:4px 0;grid-template-columns:repeat(3,minmax(0,1fr));background:transparent;border:none;border-radius:0;gap:0;overflow:visible;}
-  .hero .stat-strip .s{background:transparent;border:0;border-radius:0;padding:8px 12px;text-align:left;box-shadow:none;animation:statistic-in .5s cubic-bezier(.2,.75,.25,1) both;}
+  .hero .stat-strip .s{background:transparent;border:0;border-radius:0;padding:8px 12px;text-align:center;box-shadow:none;animation:statistic-in .5s cubic-bezier(.2,.75,.25,1) both;}
   .hero .stat-strip .s:nth-child(1){animation-delay:.42s;}.hero .stat-strip .s:nth-child(2){animation-delay:.52s;}.hero .stat-strip .s:nth-child(3){animation-delay:.62s;}
   .hero .stat-strip .s + .s{border-left:1px solid rgba(255,255,255,.14);}
-  .hero .stat-strip .s .num{color:#fff;font-size:19px;line-height:1.05;letter-spacing:-.03em;}
-  .hero .stat-strip .s .lab{color:#BBC7DE;font-size:10.5px;line-height:1.4;margin-top:5px;}
-  .hero-flow{position:relative;display:flex;flex-direction:column;gap:12px;padding:16px 0 0;color:#E9EEF9;border-top:1px solid rgba(255,255,255,.14);}
-  .hero-flow h3{margin:0;font-size:12px;color:#fff;font-weight:600;letter-spacing:.01em;}
-  .hero-flow h3::before{content:"Guided journey  /  01–03";display:block;margin-bottom:5px;color:#9EAFD0;font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;}
-  .hero-flow p{margin:0;color:#BBC7DE;font-size:11.5px;line-height:1.5;animation:none;max-width:390px;}
-  .hero-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;position:relative;padding-top:2px;}
-  .hero-steps::before{content:"";position:absolute;left:12%;right:12%;top:12px;height:1px;background:rgba(255,255,255,.22);}
-  .hero-steps::after{content:"";position:absolute;z-index:1;left:12%;right:12%;top:11px;height:3px;border-radius:999px;background:linear-gradient(90deg,transparent 0%,transparent 36%,#FFB74D 48%,rgba(255,241,203,.95) 51%,#FFB74D 54%,transparent 66%,transparent 100%);background-size:200% 100%;animation:journey-sweep 5.6s 1.25s linear infinite;}
-  .hero-step{position:relative;z-index:2;display:flex;flex-direction:column;gap:7px;padding:0;background:transparent;border:0;box-shadow:none;opacity:0;animation:journey-step-in .48s cubic-bezier(.2,.75,.25,1) forwards;}
+  .hero .stat-strip .s .num{color:#fff;font-size:21px;line-height:1.05;letter-spacing:-.03em;}
+  .hero .stat-strip .s .lab{color:#D3DAEC;font-size:12px;font-weight:600;line-height:1.4;margin-top:6px;}
+  .hero-flow{position:relative;display:flex;flex-direction:column;gap:16px;padding:20px 0 0;color:#E9EEF9;border-top:1px solid rgba(255,255,255,.14);}
+  .hero-steps{--step-dot:24px;--step-gap:18px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--step-gap);position:relative;padding-top:2px;}
+  .hero-steps::before{content:"";position:absolute;left:calc((100% - 2 * var(--step-gap)) / 6);right:calc((100% - 2 * var(--step-gap)) / 6);top:12px;height:1px;background:rgba(255,255,255,.22);}
+  .hero-step{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;padding:0;background:transparent;border:0;box-shadow:none;opacity:0;animation:journey-step-in .48s cubic-bezier(.2,.75,.25,1) forwards;}
   .hero-step:nth-child(1){animation-delay:.8s;}.hero-step:nth-child(2){animation-delay:.96s;}.hero-step:nth-child(3){animation-delay:1.12s;}
   .hero-step .n{width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--indigo);border:1px solid rgba(255,255,255,.38);box-shadow:0 0 0 4px rgba(255,255,255,.055);color:#fff;font-size:10px;font-weight:700;}
   .hero-step strong{font-size:11.5px;color:#fff;line-height:1.35;font-weight:600;letter-spacing:.01em;}
-  .hero-step span{font-size:10.5px;color:#BBC7DE;line-height:1.4;}
   @keyframes infographic-in{from{opacity:0;transform:translateX(16px) translateY(4px);}to{opacity:1;transform:none;}}
   @keyframes statistic-in{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
   @keyframes journey-step-in{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
-  @keyframes journey-sweep{from{background-position:200% 0;}to{background-position:-100% 0;}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-  @media (prefers-reduced-motion: reduce){.hero h1,.hero p,.hero-cta,.hero-visual,.hero .stat-strip .s,.hero-step,.hero-steps::after{animation:none;}.hero-step{opacity:1;}}
+  @media (prefers-reduced-motion: reduce){.hero h1,.hero p,.hero-cta,.hero-visual,.hero .stat-strip .s,.hero-step{animation:none;}.hero-step{opacity:1;}}
   @media (max-width:860px){
     .hero{padding:42px 18px 34px;}
-    .hero{grid-template-columns:1fr;gap:18px;}
+    .hero-inner{grid-template-columns:1fr;gap:18px;}
     .hero-content{max-width:none;padding:0;}
     .hero-visual{padding:18px;}
+    .hero-road{display:none;}
   }
   @media (max-width:640px){
     .hero .stat-strip{grid-template-columns:1fr;gap:0;}
     .hero .stat-strip .s{padding:9px 0;}
     .hero .stat-strip .s + .s{border-left:0;border-top:1px solid rgba(255,255,255,.12);}
     .hero-steps{grid-template-columns:1fr;}
-    .hero-steps::before{left:18px;right:auto;top:12px;bottom:12px;width:1px;height:auto;background:linear-gradient(180deg,var(--saffron),var(--green));}
-    .hero-steps::after{display:none;}
+    .hero-steps::before{left:18px;right:auto;top:12px;bottom:12px;width:1px;height:auto;background:rgba(255,255,255,.22);}
     .hero-step{padding:0 0 0 40px;}
     .hero-step .n{position:absolute;left:6px;top:0;}
   }
 
   .word-rotator{display:inline-grid;height:1.2em;overflow:hidden;vertical-align:bottom;padding-right:.15em;}
-  .word-rotator span{grid-row:1;grid-column:1;align-self:start;opacity:0;white-space:nowrap;animation:wordRotate 8s infinite;}
+  .word-rotator span{grid-row:1;grid-column:1;align-self:start;opacity:0;white-space:nowrap;animation:wordRotate 6s infinite;}
   .word-rotator span:nth-child(1){animation-delay:0s;}
   .word-rotator span:nth-child(2){animation-delay:2s;}
   .word-rotator span:nth-child(3){animation-delay:4s;}
-  .word-rotator span:nth-child(4){animation-delay:6s;}
   @keyframes wordRotate{
     0%{opacity:0;transform:translateY(10px);}
     2%{opacity:1;transform:translateY(0);}
@@ -289,26 +283,38 @@
   .stat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);border-radius:var(--radius);overflow:hidden;margin:24px 0 30px;}
   .stat-strip .s{background:var(--surface);padding:16px 12px;text-align:center;}
   .stat-strip .s .num{font-family:var(--font-display);font-size:22px;font-weight:600;color:var(--indigo);font-variant-numeric:tabular-nums;}
-  .stat-strip .s .lab{font-size:11.5px;color:var(--ink-faint);margin-top:2px;}
+  .stat-strip .s .lab{font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-top:3px;}
 
   .home-section-title{display:flex;align-items:baseline;gap:12px;margin:6px 0 18px;}
+  .home-section-title.secondary{margin-top:34px;}
   .home-section-title h2{font-family:var(--font-display);font-size:19px;color:var(--indigo);margin:0;}
   .home-section-title::after{content:"";flex:1;height:1px;background:var(--rule);}
 
-  .svc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;}
-  .svc-card{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:18px 16px;text-align:left;display:flex;flex-direction:column;gap:7px;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;animation:fadeUp .5s ease both;animation-delay:calc(var(--i,0) * 60ms);}
+  .svc-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;}
+  .svc-card{position:relative;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:18px 16px;text-align:left;display:flex;flex-direction:column;gap:7px;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;animation:fadeUp .5s ease both;animation-delay:calc(var(--i,0) * 60ms);}
   .svc-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(19,27,51,.1);border-color:var(--saffron);}
+  .svc-card.soon{opacity:.7;cursor:default;background:var(--surface-sunk);border-style:dashed;}
+  .svc-card.soon:hover{transform:none;box-shadow:none;border-color:var(--rule);}
   .svc-ico{width:36px;height:36px;border-radius:10px;background:var(--indigo-soft);color:var(--indigo);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;}
+  .svc-ico.saffron{background:var(--saffron-soft);color:var(--saffron-deep);}
+  .svc-ico.green{background:var(--green-soft);color:var(--green);}
   .svc-card .t{font-size:14.5px;font-weight:600;color:var(--ink);}
-  .svc-card .d{font-size:12.5px;color:var(--ink-soft);line-height:1.5;}
+  .svc-card .d{font-size:13.5px;font-weight:600;color:var(--ink-soft);line-height:1.5;}
+  @media(max-width:760px){.svc-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 
   .split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:26px;}
   @media(max-width:560px){.split{grid-template-columns:1fr;}}
-  .info-card{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:18px 16px;}
-  .info-card h3{font-size:14px;margin:0 0 10px;color:var(--indigo);font-weight:600;}
-  .info-card ul{margin:0;padding-left:18px;font-size:13px;color:var(--ink-soft);}
-  .info-card ul li{padding:4px 0;}
+  .info-card{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:20px 18px;}
+  .info-card h3{display:flex;align-items:center;gap:9px;font-size:14.5px;margin:0 0 14px;color:var(--indigo);font-weight:700;}
+  .info-card h3 .ico{width:26px;height:26px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .info-card.notice h3 .ico{background:var(--saffron-soft);color:var(--saffron-deep);}
+  .info-card.checklist h3 .ico{background:var(--green-soft);color:var(--green);}
+  .info-card ul{margin:0;padding:0;list-style:none;font-size:14px;font-weight:600;color:var(--ink-soft);}
+  .info-card ul li{position:relative;padding:7px 0 7px 24px;line-height:1.45;border-bottom:1px solid var(--rule-soft);}
+  .info-card ul li:last-child{border-bottom:none;}
   .info-card ul li a{text-decoration:none;}
+  .info-card.notice ul li::before{content:"";position:absolute;left:2px;top:14px;width:6px;height:6px;border-radius:50%;background:var(--saffron);}
+  .info-card.checklist ul li::before{content:"✓";position:absolute;left:0;top:7px;color:var(--green);font-weight:700;}
   .helpline{background:var(--surface-sunk);border:1px solid var(--rule);border-radius:var(--radius);padding:16px;margin-top:26px;font-size:13px;color:var(--ink-soft);}
   .helpline strong{color:var(--indigo);}
 
@@ -389,22 +395,14 @@
 <!-- HOME (wider layout, lives outside .wrap) -->
 <section class="screen active" id="screen-home">
   <div class="hero">
-    <svg class="hero-mark" viewBox="0 0 400 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <path d="M-10 200 C 55 150, 95 235, 150 175 S 250 90, 305 135 S 400 55, 430 35" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="1 15"/>
-      <circle cx="55" cy="163" r="5" fill="#FFFFFF"/>
-      <circle cx="150" cy="175" r="5" fill="#FFFFFF"/>
-      <circle cx="255" cy="103" r="5" fill="#FFFFFF"/>
-      <circle cx="330" cy="108" r="8" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>
-      <circle cx="330" cy="108" r="2.5" fill="#FFFFFF"/>
-    </svg>
-    <svg class="hero-network" id="hero-network" viewBox="0 0 1000 420" preserveAspectRatio="none" aria-hidden="true"></svg>
+   <div class="hero-inner">
     <div class="hero-content">
       <h1>
         <span class="i18n-en">
-          <span class="sr-only">Your licence — without the waiting, guessing, double payments, or silence.</span>
-          <span aria-hidden="true">Your licence — without the <span class="word-rotator"><span>waiting.</span><span>guessing.</span><span>double payments.</span><span>silence.</span></span></span>
+          <span class="sr-only">Your licence — without the waiting, guessing, or silence.</span>
+          <span aria-hidden="true">Your licence — without the <span class="word-rotator"><span>waiting.</span><span>guessing.</span><span>silence.</span></span></span>
         </span>
-        <span class="i18n-hi">आपका लाइसेंस — बिना इंतज़ार, असमंजस या दोबारा भुगतान के।</span>
+        <span class="i18n-hi">आपका लाइसेंस — बिना इंतज़ार या असमंजस के।</span>
       </h1>
       <p class="i18n-en">One account for every licence service — apply, renew, track, book appointments, and download your e-DL.</p>
       <p class="i18n-hi">एक खाता, हर लाइसेंस सेवा — आवेदन, नवीनीकरण, ट्रैकिंग और डाउनलोड।</p>
@@ -412,6 +410,35 @@
         <button class="btn saffron" data-action="goto-login">Get started</button>
         <button class="btn ghost" data-action="scroll-services">Browse services</button>
       </div>
+    </div>
+    <div class="hero-road" aria-hidden="true">
+      <span class="hero-road-lane lane-a">
+        <span class="hero-road-car c-saffron" style="animation-duration:6.2s;animation-delay:-1.4s;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="3" width="12" height="17" rx="3"/>
+            <line x1="9" y1="8" x2="15" y2="8"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+          </svg>
+        </span>
+      </span>
+      <span class="hero-road-lane lane-b">
+        <span class="hero-road-car c-cream" style="animation-duration:7.4s;animation-delay:-3.6s;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="3" width="12" height="17" rx="3"/>
+            <line x1="9" y1="8" x2="15" y2="8"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+          </svg>
+        </span>
+      </span>
+      <span class="hero-road-lane lane-c">
+        <span class="hero-road-car c-green" style="animation-duration:5.6s;animation-delay:-2.5s;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="6" y="3" width="12" height="17" rx="3"/>
+            <line x1="9" y1="8" x2="15" y2="8"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+          </svg>
+        </span>
+      </span>
     </div>
     <aside class="hero-visual" aria-label="Service snapshot">
       <div class="hero-visual-head">
@@ -421,81 +448,75 @@
       <div class="stat-strip">
         <div class="s"><div class="num">1,300+</div><div class="lab">RTOs connected</div></div>
         <div class="s"><div class="num">12.5 cr</div><div class="lab">Licences issued</div></div>
-        <div class="s"><div class="num">120+</div><div class="lab">Online services</div></div>
+        <div class="s"><div class="num">4</div><div class="lab">Licence services</div></div>
       </div>
       <div class="hero-flow">
-        <h3>One clear route to your licence service</h3>
-        <p>Every stage stays visible, so you always know what comes next.</p>
         <div class="hero-steps">
           <div class="hero-step">
             <div class="n">1</div>
             <strong>Select your service</strong>
-            <span>Start with the task you need today.</span>
           </div>
           <div class="hero-step">
             <div class="n">2</div>
             <strong>Review &amp; submit</strong>
-            <span>Confirm details, documents, and payment.</span>
           </div>
           <div class="hero-step">
             <div class="n">3</div>
             <strong>Track each update</strong>
-            <span>See appointments, status, and delivery.</span>
           </div>
         </div>
       </div>
     </aside>
+   </div>
   </div>
 
   <div class="home-wrap">
-    <div class="home-section-title" id="services-anchor"><h2><span class="i18n-en">All licence services</span><span class="i18n-hi">सभी लाइसेंस सेवाएं</span></h2></div>
+    <div class="home-section-title" id="services-anchor"><h2><span class="i18n-en">Apply online</span><span class="i18n-hi">ऑनलाइन आवेदन करें</span></h2></div>
     <div class="svc-grid">
       <button class="svc-card" style="--i:0" data-action="start-intake" data-service="renew">
         <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M17 3.7V8h-4.3"/><path d="M7 20.3V16h4.3"/></svg></div><div class="t">Renew driving licence</div>
         <div class="d">Renew an expired or expiring DL online.</div>
       </button>
       <button class="svc-card" style="--i:1" data-action="start-intake" data-service="new">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="10" rx="2"/><line x1="6" y1="9" x2="11" y2="9"/><line x1="6" y1="12" x2="9" y2="12"/><circle cx="18" cy="16" r="4"/><line x1="18" y1="14.3" x2="18" y2="17.7"/><line x1="16.3" y1="16" x2="19.7" y2="16"/></svg></div><div class="t">New learner's licence</div>
+        <div class="svc-ico saffron"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="10" rx="2"/><line x1="6" y1="9" x2="11" y2="9"/><line x1="6" y1="12" x2="9" y2="12"/><circle cx="18" cy="16" r="4"/><line x1="18" y1="14.3" x2="18" y2="17.7"/><line x1="16.3" y1="16" x2="19.7" y2="16"/></svg></div><div class="t">New learner's licence</div>
         <div class="d">Apply for a fresh LL and book the test.</div>
       </button>
       <button class="svc-card" style="--i:2" data-action="start-intake" data-service="duplicate">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="9" rx="1.8"/><path d="M7 7V4.5A1.5 1.5 0 0 1 8.5 3H18a1.5 1.5 0 0 1 1.5 1.5V13a1.5 1.5 0 0 1-1.5 1.5H16.5"/></svg></div><div class="t">Duplicate licence</div>
+        <div class="svc-ico green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="9" rx="1.8"/><path d="M7 7V4.5A1.5 1.5 0 0 1 8.5 3H18a1.5 1.5 0 0 1 1.5 1.5V13a1.5 1.5 0 0 1-1.5 1.5H16.5"/></svg></div><div class="t">Duplicate licence</div>
         <div class="d">Reissue a lost, stolen or damaged DL.</div>
       </button>
-      <button class="svc-card" style="--i:3" data-action="goto-login">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div class="t">Application status</div>
-        <div class="d">Track any application under your account.</div>
-      </button>
-      <button class="svc-card" style="--i:4" data-action="goto-login">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="7" y1="3" x2="7" y2="7"/><line x1="17" y1="3" x2="17" y2="7"/><path d="M8.5 14.5l2 2 4.5-4.5"/></svg></div><div class="t">Appointment booking</div>
-        <div class="d">Reserve an RTO slot with live availability.</div>
-      </button>
-      <button class="svc-card" style="--i:5" data-action="goto-login">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="16" rx="1.5"/><line x1="7" y1="7" x2="13" y2="7"/><line x1="7" y1="10" x2="13" y2="10"/><path d="M14 15l4.2-4.2a1.4 1.4 0 0 1 2 2L16 17l-2.6.6z"/></svg></div><div class="t">Online LL test</div>
-        <div class="d">Take the learner's test from home.</div>
-      </button>
-      <button class="svc-card" style="--i:6" data-action="start-intake" data-service="address">
+      <button class="svc-card" style="--i:3" data-action="start-intake" data-service="address">
         <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg></div><div class="t">Change of address</div>
         <div class="d">Update the address on your licence.</div>
       </button>
-      <button class="svc-card" style="--i:7" data-action="goto-login">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="13" width="16" height="7" rx="2"/><path d="M12 3v8"/><path d="M9 8l3 3 3-3"/></svg></div><div class="t">Download e-DL</div>
-        <div class="d">Get your digital licence from DigiLocker.</div>
+    </div>
+
+    <div class="home-section-title secondary">
+      <h2><span class="i18n-en">More services</span><span class="i18n-hi">अन्य सेवाएं</span></h2>
+    </div>
+    <div class="svc-grid svc-grid-secondary">
+      <button class="svc-card soon" style="--i:4" disabled title="Coming soon">
+        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div class="t">Application status</div>
+        <div class="d">Track any application under your account.</div>
+      </button>
+      <button class="svc-card soon" style="--i:5" disabled title="Coming soon">
+        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="7" y1="3" x2="7" y2="7"/><line x1="17" y1="3" x2="17" y2="7"/><path d="M8.5 14.5l2 2 4.5-4.5"/></svg></div><div class="t">Appointment booking</div>
+        <div class="d">Reserve an RTO slot with live availability.</div>
       </button>
     </div>
 
     <div class="split">
-      <div class="info-card">
-        <h3>Latest notifications</h3>
+      <div class="info-card notice">
+        <h3><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 3 1 4.5 2 6H4c1-1.5 2-3 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg></span>Latest notifications</h3>
         <ul>
           <li>Online appointment booking now standard at all RTOs</li>
-          <li>Form 121 replaces Forms 15G/15H for select filings</li>
+          <li>Aadhaar-based e-KYC now accepted for identity verification</li>
           <li>Faceless DL/RC services now live in 22 States</li>
           <li>e-DL &amp; e-RC on DigiLocker are legally valid documents</li>
         </ul>
       </div>
-      <div class="info-card">
-        <h3>Before you apply</h3>
+      <div class="info-card checklist">
+        <h3><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 13l2 2 4-4"/></svg></span>Before you apply</h3>
         <ul>
           <li>Keep your Aadhaar-linked mobile number handy for OTP</li>
           <li>A medical certificate (Form 1A) is needed if you are 40 or above</li>
@@ -768,57 +789,8 @@
   </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script>
 var session = { citizen: null, service: null, applicationId: null, referenceCode: null, application: null, pendingService: null };
-
-function initHeroNetwork(){
-  if(!window.d3) return;
-  var svg = d3.select('#hero-network');
-  if(svg.empty()) return;
-  var points = [
-    {x:-40,y:326},{x:120,y:280},{x:274,y:314},{x:426,y:224},
-    {x:596,y:250},{x:738,y:146},{x:884,y:186},{x:1040,y:88}
-  ];
-  var line = d3.line().x(function(d){ return d.x; }).y(function(d){ return d.y; }).curve(d3.curveCatmullRom.alpha(.45));
-  var roadPath = line(points);
-  svg.append('path').attr('class','road-surface').attr('d', roadPath);
-  var route = svg.append('path').attr('class','road-edge').attr('d', roadPath).attr('transform','translate(0,-17)');
-  svg.append('path').attr('class','road-edge').attr('d', roadPath).attr('transform','translate(0,17)');
-  svg.append('path').attr('class','road-lane').attr('d', roadPath);
-  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var path = route.node();
-  var pathLength = path.getTotalLength();
-  var waypointStops = [.14,.35,.59,.82];
-  svg.selectAll('.rto-stop').data(waypointStops).enter().append('g').attr('class','rto-stop')
-    .each(function(progress){
-      var point = path.getPointAtLength(progress * pathLength);
-      var stop = d3.select(this).attr('transform','translate('+point.x+','+point.y+')');
-      stop.append('circle').attr('class','rto-waypoint').attr('r',5.5);
-      stop.append('circle').attr('class','rto-waypoint-core').attr('r',1.6);
-    });
-  var vehicle = svg.append('g').attr('class','road-vehicle');
-  vehicle.append('rect').attr('x',-8).attr('y',-4.5).attr('width',16).attr('height',9).attr('rx',3);
-  vehicle.append('circle').attr('cx',-4.6).attr('cy',4.8).attr('r',1.8);
-  vehicle.append('circle').attr('cx',4.6).attr('cy',4.8).attr('r',1.8);
-  function placeVehicle(progress){
-    var distance = (progress % 1) * pathLength;
-    var point = path.getPointAtLength(distance);
-    var before = path.getPointAtLength(Math.max(0,distance - 2));
-    var after = path.getPointAtLength(Math.min(pathLength,distance + 2));
-    var angle = Math.atan2(after.y-before.y,after.x-before.x) * 180 / Math.PI;
-    vehicle.attr('transform','translate('+point.x+','+point.y+') rotate('+angle+')');
-  }
-  placeVehicle(.18);
-  if(reduceMotion) return;
-  var started = null;
-  function tick(time){
-    if(!started) started = time;
-    placeVehicle(.18 + ((time - started) / 18000));
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
 
 async function api(path, opts){
   opts = opts || {};
@@ -1136,7 +1108,6 @@ async function handleAction(action, el){
 }
 
 document.addEventListener('DOMContentLoaded', function(){
-  initHeroNetwork();
   document.body.addEventListener('click', function(e){
     var t = e.target.closest('[data-action]');
     if(!t) return;
