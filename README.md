@@ -56,6 +56,7 @@ db/
   migrate.js         applies schema.sql to DATABASE_URL
   seed.js            seeds the 4 licence services (renew/new/duplicate/address)
   pool.js            Postgres connection pool
+  README.md          schema documentation — tables, columns, relationships
 render.yaml           Render deployment blueprint
 ```
 
