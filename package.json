@@ -1,0 +1,17 @@
+{
+  "name": "setu-sarathi-prototype",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend for the Sarathi Parivahan Sewa hackathon prototype",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "db:migrate": "node db/migrate.js",
+    "db:seed": "node db/seed.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}

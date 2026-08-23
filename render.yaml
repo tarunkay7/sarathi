@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: setu-sarathi
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run db:migrate && npm run db:seed
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
