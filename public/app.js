@@ -193,6 +193,10 @@ function selectCalendarDay(day, cell){
   });
 }
 
+function getAvailableSlotDates(){
+  return CAL_AVAILABLE_DAYS.map(function(day){ return formatDate(new Date(CAL_YEAR, CAL_MONTH, day).toISOString()); });
+}
+
 async function createApplication(serviceKey){
   var data = await api('/api/applications/service/' + serviceKey);
   session.service = data.service;
@@ -439,6 +443,19 @@ function renderVoiceProgress(phase){
   renderVoiceDetail(phase);
 }
 
+function vcard(opts){
+  var state = opts.state || '';
+  var delay = ((opts.delay || 0)).toFixed(2);
+  return '<div class="vcard ' + state + '" style="animation-delay:' + delay + 's">' +
+    (opts.icon ? '<span class="vcard-icon">' + opts.icon + '</span>' : '') +
+    '<div class="vcard-body">' +
+      '<span class="vcard-label">' + opts.label + '</span>' +
+      '<span class="vcard-value">' + opts.value + '</span>' +
+      (opts.sub ? '<span class="vcard-sub">' + opts.sub + '</span>' : '') +
+    '</div>' +
+  '</div>';
+}
+
 function renderVoiceDetail(phase){
   var el = document.getElementById('voice-detail');
   var citizen = session.citizen;
@@ -449,44 +466,61 @@ function renderVoiceDetail(phase){
   el.classList.add('voice-caption-fade');
 
   if(phase === 'details'){
-    el.innerHTML =
-      '<div class="infogrid" style="margin-bottom:0;">' +
-        '<div class="cell"><span class="k">Applicant</span><span class="v">' + citizen.name + '</span></div>' +
-        '<div class="cell auto"><span class="k">State / RTO</span><span class="v">' + citizen.state + ' · ' + citizen.rto + '</span></div>' +
-        '<div class="cell"><span class="k">DL number</span><span class="v">' + (citizen.dl_number || '—') + '</span></div>' +
-        '<div class="cell auto"><span class="k">Date of birth</span><span class="v">' + (citizen.dob ? formatDate(citizen.dob) : '—') + '</span></div>' +
-        '<div class="cell auto"><span class="k">Licence class</span><span class="v">' + (citizen.vehicle_classes || '—') + '</span></div>' +
-      '</div>';
+    var rows = [
+      { label: 'Applicant', value: citizen.name },
+      { label: 'State / RTO', value: citizen.state + ' · ' + citizen.rto },
+      { label: 'DL number', value: citizen.dl_number || '—' },
+      { label: 'Date of birth', value: citizen.dob ? formatDate(citizen.dob) : '—' },
+      { label: 'Licence class', value: citizen.vehicle_classes || '—' },
+    ];
+    el.innerHTML = '<div class="vcard-list">' + rows.map(function(r, i){
+      return vcard({ label: r.label, value: r.value, delay: i * 0.07 });
+    }).join('') + '</div>';
   }
   else if(phase === 'documents'){
     var form1a = computeForm1a(service, citizen);
-    var items = service.checklist.map(function(item){
-      return '<li><span class="tick">✓</span> ' + item.label + (item.badge ? ' <span class="doc-badge">' + item.badge + '</span>' : '') + '</li>';
-    }).join('');
+    var rows = service.checklist.map(function(item){
+      return { icon: '✓', label: 'Document ready', value: item.label, sub: item.badge, state: 'confirmed' };
+    });
     if(form1a.required){
-      items += '<li class="extra"><span class="tick">✓</span> Medical certificate (Form 1A) — <strong>' + form1a.reason + '</strong></li>';
+      rows.push({ icon: '✓', label: 'Medical certificate needed', value: 'Form 1A', sub: form1a.reason, state: 'flag' });
     }
-    el.innerHTML = '<ul class="checklist" style="margin:0;">' + items + '</ul>';
+    el.innerHTML = '<div class="vcard-list">' + rows.map(function(r, i){
+      return vcard({ icon: r.icon, label: r.label, value: r.value, sub: r.sub, state: r.state, delay: i * 0.07 });
+    }).join('') + '</div>';
   }
   else if(phase === 'slot'){
-    el.innerHTML =
-      '<table class="fee-table" style="margin:0;"><tr><td>' + service.title + ' (' + service.form_number + ')</td><td>' + rupees(service.fee_cents) + '</td></tr></table>' +
-      '<p class="hint" style="margin-top:10px;">' + (session.selectedSlot ? ('Slot: <strong>' + session.selectedSlot.date + ' · ' + session.selectedSlot.time + '</strong>') : 'Waiting for you to choose an RTO visit date and time…') + '</p>';
+    var earliestDate = formatDate(new Date(CAL_YEAR, CAL_MONTH, Math.min.apply(null, CAL_AVAILABLE_DAYS)).toISOString());
+    var cards = [ vcard({ label: service.title + ' (' + service.form_number + ')', value: rupees(service.fee_cents), delay: 0 }) ];
+    if(session.selectedSlot){
+      cards.push(vcard({ icon: '✓', label: 'Say "yes" to confirm this RTO visit', value: session.selectedSlot.date + ' · ' + session.selectedSlot.time, state: 'awaiting', delay: 0.07 }));
+    } else {
+      cards.push(vcard({ label: 'Suggested earliest slot', value: earliestDate, sub: 'Tell Setu your preferred date and time', state: 'pending', delay: 0.07 }));
+    }
+    el.innerHTML = '<div class="vcard-list">' + cards.join('') + '</div>';
   }
   else if(phase === 'payment'){
-    el.innerHTML =
-      '<table class="fee-table" style="margin:0;"><tr><td>' + service.title + ' (' + service.form_number + ')</td><td>' + rupees(service.fee_cents) + '</td></tr></table>' +
-      (session.selectedSlot ? '<p class="hint" style="margin-top:10px;">Slot: <strong>' + session.selectedSlot.date + ' · ' + session.selectedSlot.time + '</strong></p>' : '') +
-      '<p class="hint" style="margin-top:10px;">Waiting for payment…</p>';
+    var cards = [ vcard({ label: service.title + ' (' + service.form_number + ')', value: rupees(service.fee_cents), delay: 0 }) ];
+    if(session.selectedSlot){
+      cards.push(vcard({ icon: '✓', label: 'RTO visit confirmed', value: session.selectedSlot.date + ' · ' + session.selectedSlot.time, state: 'confirmed', delay: 0.07 }));
+    }
+    if(session.paymentDone){
+      cards.push(vcard({ icon: '✓', label: 'Payment', value: 'Received', state: 'confirmed', delay: cards.length * 0.07 }));
+    } else {
+      cards.push(vcard({ label: 'Payment', value: 'Waiting for confirmation…', state: 'awaiting', delay: cards.length * 0.07 }));
+    }
+    el.innerHTML = '<div class="vcard-list">' + cards.join('') + '</div>';
   }
   else if(phase === 'track'){
-    el.innerHTML =
-      '<p class="hint" style="margin:0;">Application submitted.</p>' +
-      '<p class="rec-id" style="margin-top:6px;">Reference: ' + (session.referenceCode || '—') + '</p>';
+    el.innerHTML = '<div class="vcard-list">' +
+      vcard({ icon: '✓', label: 'Application submitted', value: session.referenceCode || '—', state: 'confirmed', delay: 0 }) +
+    '</div>';
   }
 }
 
 function resetVoiceScreen(){
+  session.selectedSlot = null;
+  session.paymentDone = false;
   setVoiceCaption('Tap "Start conversation" and allow microphone access to begin.');
   setVoiceUserCaption('');
   document.getElementById('voice-mic-dot').classList.remove('live');
@@ -498,6 +532,20 @@ function resetVoiceScreen(){
   input.value = '';
   voiceCaptionBuffer = '';
   document.getElementById('voice-detail').innerHTML = '<p class="hint" style="margin:0;">Details will appear here once you start.</p>';
+  document.getElementById('voice-split').classList.add('pre-start');
+  var progressPanel = document.getElementById('voice-progress-panel');
+  progressPanel.hidden = true;
+  progressPanel.classList.remove('voice-reveal');
+  renderVoiceProgress('details');
+}
+
+function revealVoiceIntake(){
+  var split = document.getElementById('voice-split');
+  var progressPanel = document.getElementById('voice-progress-panel');
+  if(!progressPanel.hidden){ return; }
+  split.classList.remove('pre-start');
+  progressPanel.hidden = false;
+  progressPanel.classList.add('voice-reveal');
   renderVoiceProgress('details');
 }
 
@@ -516,7 +564,11 @@ function endVoiceRenewal(){
 async function handleVoiceToolCall(name, args, callId){
   var result = {};
   try{
-    if(name === 'start_application'){
+    if(name === 'begin_intake'){
+      revealVoiceIntake();
+      result = { ok: true };
+    }
+    else if(name === 'start_application'){
       await createApplication('renew');
       result = { ok: true, referenceCode: session.referenceCode };
       renderVoiceProgress('documents');
@@ -526,12 +578,29 @@ async function handleVoiceToolCall(name, args, callId){
       renderVoiceProgress(session.service.requires_slot ? 'slot' : 'payment');
     }
     else if(name === 'select_slot'){
-      session.selectedSlot = { date: args.date, time: args.time };
-      result = { ok: true };
-      renderVoiceProgress('payment');
+      var availableDates = getAvailableSlotDates();
+      if(availableDates.indexOf(args.date) === -1){
+        result = { error: 'That date is not available. Available dates are: ' + availableDates.join(', ') + '.' };
+      } else if(CAL_TIMES.indexOf(args.time) === -1){
+        result = { error: 'That time is not available. Available times are: ' + CAL_TIMES.join(', ') + '.' };
+      } else {
+        session.selectedSlot = { date: args.date, time: args.time };
+        result = { ok: true, note: 'Shown on screen as a proposed card. Ask the citizen to confirm before calling confirm_slot.' };
+        renderVoiceProgress('slot');
+      }
+    }
+    else if(name === 'confirm_slot'){
+      if(!session.selectedSlot){
+        result = { error: 'No slot has been picked yet — call select_slot first.' };
+      } else {
+        result = { ok: true };
+        renderVoiceProgress('payment');
+      }
     }
     else if(name === 'make_payment'){
       var payment = await processPayment(args.method, 1200);
+      session.paymentDone = true;
+      renderVoiceProgress('payment');
       result = { ok: true, status: payment.status };
     }
     else if(name === 'finish'){
@@ -601,28 +670,42 @@ async function startVoiceRenewal(){
       feeRupees: Math.round(session.service.fee_cents / 100),
       requiresSlot: session.service.requires_slot,
       form1a: form1a,
+      checklist: session.service.checklist,
+      earliestSlotDate: formatDate(new Date(CAL_YEAR, CAL_MONTH, Math.min.apply(null, CAL_AVAILABLE_DAYS)).toISOString()),
+      availableDates: getAvailableSlotDates(),
+      slotTimes: CAL_TIMES,
     }});
 
     voicePC = new RTCPeerConnection();
     var audioEl = document.createElement('audio');
     audioEl.autoplay = true;
     voicePC.ontrack = function(e){ audioEl.srcObject = e.streams[0]; };
+    voicePC.oniceconnectionstatechange = function(){
+      console.log('[voice] ice state:', voicePC.iceConnectionState);
+      if(voicePC.iceConnectionState === 'failed' || voicePC.iceConnectionState === 'disconnected'){
+        setVoiceCaption('Connection lost (ICE ' + voicePC.iceConnectionState + '). Try again.');
+      }
+    };
+    voicePC.onconnectionstatechange = function(){ console.log('[voice] connection state:', voicePC.connectionState); };
 
     voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     voicePC.addTrack(voiceStream.getTracks()[0]);
 
     voiceDC = voicePC.createDataChannel('oai-events');
     voiceDC.addEventListener('open', function(){
-      setVoiceCaption('Connected — say hello!');
+      console.log('[voice] data channel open');
+      setVoiceCaption('');
       document.getElementById('voice-mic-dot').classList.add('live');
       btn.hidden = true;
       document.getElementById('voice-text-input').disabled = false;
-      renderVoiceProgress('details');
+      voiceDC.send(JSON.stringify({ type: 'response.create' }));
     });
     voiceDC.addEventListener('message', function(e){
-      try{ handleVoiceEvent(JSON.parse(e.data)); } catch(err){}
+      try{ handleVoiceEvent(JSON.parse(e.data)); } catch(err){ console.error('[voice] event handling error:', err); }
     });
+    voiceDC.addEventListener('error', function(e){ console.error('[voice] data channel error:', e); });
     voiceDC.addEventListener('close', function(){
+      console.log('[voice] data channel closed');
       setVoiceCaption('Disconnected.');
       document.getElementById('voice-mic-dot').classList.remove('live');
     });
@@ -638,10 +721,15 @@ async function startVoiceRenewal(){
         'Content-Type': 'application/sdp',
       },
     });
-    if(!sdpRes.ok) throw new Error('Could not connect to the voice assistant.');
+    if(!sdpRes.ok){
+      var errText = await sdpRes.text().catch(function(){ return ''; });
+      console.error('[voice] SDP exchange failed:', sdpRes.status, errText);
+      throw new Error('Could not connect to the voice assistant (HTTP ' + sdpRes.status + ').');
+    }
     var answerSdp = await sdpRes.text();
     await voicePC.setRemoteDescription({ type: 'answer', sdp: answerSdp });
   } catch(err){
+    console.error('[voice] startVoiceRenewal failed:', err);
     setVoiceCaption(err.message || 'Could not start the voice assistant.');
     btn.disabled = false;
     stopVoiceConnection();
