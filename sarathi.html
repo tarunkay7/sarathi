@@ -201,7 +201,7 @@
 
   /* ---------- HOME ---------- */
   .home-wrap{max-width:1040px;margin:0 auto;padding:0 20px 48px;}
-  .hero{position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(135deg,var(--indigo) 0%,var(--indigo-deep) 100%);color:#fff;border-radius:0 0 24px 24px;padding:54px 24px 42px;}
+  .hero{position:relative;overflow:hidden;isolation:isolate;background:linear-gradient(135deg,var(--indigo) 0%,var(--indigo-deep) 100%);color:#fff;border-radius:0 0 24px 24px;padding:64px 24px 62px;}
   .hero-inner{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.05fr) 74px minmax(290px,.95fr);gap:40px;align-items:stretch;}
   .hero-road{position:relative;overflow:hidden;display:flex;justify-content:space-between;gap:8px;padding:4px 2px;}
   .hero-road-lane{position:relative;flex:1;}
@@ -222,45 +222,21 @@
   .hero-cta .btn{width:auto;}
   .hero-cta .btn.ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.45);}
   .hero-cta .btn.ghost:hover{background:rgba(255,255,255,.1);}
-  .hero-visual{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;gap:22px;min-height:100%;padding:28px 24px;border-radius:20px;background:linear-gradient(135deg,rgba(255,255,255,.09),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.13);box-shadow:inset 0 1px 0 rgba(255,255,255,.07);backdrop-filter:blur(8px);isolation:isolate;animation:infographic-in .8s .18s cubic-bezier(.2,.75,.25,1) both;}
-  .hero-visual::after{content:"";position:absolute;left:24px;right:24px;top:58px;border-top:1px solid rgba(255,255,255,.12);pointer-events:none;z-index:0;}
-  .hero-visual > *{position:relative;z-index:1;}
-  .hero-visual-head{display:flex;align-items:center;justify-content:space-between;gap:10px;color:#E6ECFA;font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;}
-  .hero-visual-head .chip{padding:0;color:#BAC6E1;font-size:9px;letter-spacing:.1em;}
-  .hero-visual-head .chip::before{content:"";display:inline-block;width:5px;height:5px;margin:0 6px 1px 0;border-radius:50%;background:#81C995;}
-  .hero .stat-strip{margin:0;padding:4px 0;grid-template-columns:repeat(3,minmax(0,1fr));background:transparent;border:none;border-radius:0;gap:0;overflow:visible;}
-  .hero .stat-strip .s{background:transparent;border:0;border-radius:0;padding:8px 12px;text-align:center;box-shadow:none;animation:statistic-in .5s cubic-bezier(.2,.75,.25,1) both;}
-  .hero .stat-strip .s:nth-child(1){animation-delay:.42s;}.hero .stat-strip .s:nth-child(2){animation-delay:.52s;}.hero .stat-strip .s:nth-child(3){animation-delay:.62s;}
-  .hero .stat-strip .s + .s{border-left:1px solid rgba(255,255,255,.14);}
-  .hero .stat-strip .s .num{color:#fff;font-size:21px;line-height:1.05;letter-spacing:-.03em;}
-  .hero .stat-strip .s .lab{color:#D3DAEC;font-size:12px;font-weight:600;line-height:1.4;margin-top:6px;}
-  .hero-flow{position:relative;display:flex;flex-direction:column;gap:16px;padding:20px 0 0;color:#E9EEF9;border-top:1px solid rgba(255,255,255,.14);}
-  .hero-steps{--step-dot:24px;--step-gap:18px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--step-gap);position:relative;padding-top:2px;}
-  .hero-steps::before{content:"";position:absolute;left:calc((100% - 2 * var(--step-gap)) / 6);right:calc((100% - 2 * var(--step-gap)) / 6);top:12px;height:1px;background:rgba(255,255,255,.22);}
-  .hero-step{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;padding:0;background:transparent;border:0;box-shadow:none;opacity:0;animation:journey-step-in .48s cubic-bezier(.2,.75,.25,1) forwards;}
-  .hero-step:nth-child(1){animation-delay:.8s;}.hero-step:nth-child(2){animation-delay:.96s;}.hero-step:nth-child(3){animation-delay:1.12s;}
-  .hero-step .n{width:24px;height:24px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:var(--indigo);border:1px solid rgba(255,255,255,.38);box-shadow:0 0 0 4px rgba(255,255,255,.055);color:#fff;font-size:10px;font-weight:700;}
-  .hero-step strong{font-size:11.5px;color:#fff;line-height:1.35;font-weight:600;letter-spacing:.01em;}
-  @keyframes infographic-in{from{opacity:0;transform:translateX(16px) translateY(4px);}to{opacity:1;transform:none;}}
-  @keyframes statistic-in{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
-  @keyframes journey-step-in{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
+  .hero-services{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;gap:12px;}
+  .hero-services-head{color:#E6ECFA;font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;}
+  .hero-services .svc-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .hero-services .svc-card{padding:13px 12px;gap:5px;}
+  .hero-services .svc-card:hover{box-shadow:0 10px 22px rgba(0,0,0,.35);}
+  .hero-services .svc-ico{width:28px;height:28px;border-radius:8px;}
+  .hero-services .svc-card .t{font-size:12.5px;}
+  .hero-services .svc-card .d{font-size:11.5px;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
-  @media (prefers-reduced-motion: reduce){.hero h1,.hero p,.hero-cta,.hero-visual,.hero .stat-strip .s,.hero-step{animation:none;}.hero-step{opacity:1;}}
+  @media (prefers-reduced-motion: reduce){.hero h1,.hero p,.hero-cta,.hero-services .svc-card{animation:none;}}
   @media (max-width:860px){
     .hero{padding:42px 18px 34px;}
     .hero-inner{grid-template-columns:1fr;gap:18px;}
     .hero-content{max-width:none;padding:0;}
-    .hero-visual{padding:18px;}
     .hero-road{display:none;}
-  }
-  @media (max-width:640px){
-    .hero .stat-strip{grid-template-columns:1fr;gap:0;}
-    .hero .stat-strip .s{padding:9px 0;}
-    .hero .stat-strip .s + .s{border-left:0;border-top:1px solid rgba(255,255,255,.12);}
-    .hero-steps{grid-template-columns:1fr;}
-    .hero-steps::before{left:18px;right:auto;top:12px;bottom:12px;width:1px;height:auto;background:rgba(255,255,255,.22);}
-    .hero-step{padding:0 0 0 40px;}
-    .hero-step .n{position:absolute;left:6px;top:0;}
   }
 
   .word-rotator{display:inline-grid;height:1.2em;overflow:hidden;vertical-align:bottom;padding-right:.15em;}
@@ -408,7 +384,7 @@
       <p class="i18n-hi">एक खाता, हर लाइसेंस सेवा — आवेदन, नवीनीकरण, ट्रैकिंग और डाउनलोड।</p>
       <div class="hero-cta">
         <button class="btn saffron" data-action="goto-login">Get started</button>
-        <button class="btn ghost" data-action="scroll-services">Browse services</button>
+        <button class="btn ghost" data-action="goto-login">Login</button>
       </div>
     </div>
     <div class="hero-road" aria-hidden="true">
@@ -440,57 +416,31 @@
         </span>
       </span>
     </div>
-    <aside class="hero-visual" aria-label="Service snapshot">
-      <div class="hero-visual-head">
-        <span>Service at a glance</span>
-        <span class="chip">All India</span>
-      </div>
-      <div class="stat-strip">
-        <div class="s"><div class="num">1,300+</div><div class="lab">RTOs connected</div></div>
-        <div class="s"><div class="num">12.5 cr</div><div class="lab">Licences issued</div></div>
-        <div class="s"><div class="num">4</div><div class="lab">Licence services</div></div>
-      </div>
-      <div class="hero-flow">
-        <div class="hero-steps">
-          <div class="hero-step">
-            <div class="n">1</div>
-            <strong>Select your service</strong>
-          </div>
-          <div class="hero-step">
-            <div class="n">2</div>
-            <strong>Review &amp; submit</strong>
-          </div>
-          <div class="hero-step">
-            <div class="n">3</div>
-            <strong>Track each update</strong>
-          </div>
-        </div>
+    <aside class="hero-services" aria-label="Apply online">
+      <div class="hero-services-head"><span class="i18n-en">Apply online</span><span class="i18n-hi">ऑनलाइन आवेदन करें</span></div>
+      <div class="svc-grid">
+        <button class="svc-card" style="--i:0" data-action="start-intake" data-service="renew">
+          <div class="svc-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M17 3.7V8h-4.3"/><path d="M7 20.3V16h4.3"/></svg></div><div class="t">Renew driving licence</div>
+          <div class="d">Renew an expired or expiring DL online.</div>
+        </button>
+        <button class="svc-card" style="--i:1" data-action="start-intake" data-service="new">
+          <div class="svc-ico saffron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="10" rx="2"/><line x1="6" y1="9" x2="11" y2="9"/><line x1="6" y1="12" x2="9" y2="12"/><circle cx="18" cy="16" r="4"/><line x1="18" y1="14.3" x2="18" y2="17.7"/><line x1="16.3" y1="16" x2="19.7" y2="16"/></svg></div><div class="t">New learner's licence</div>
+          <div class="d">Apply for a fresh LL and book the test.</div>
+        </button>
+        <button class="svc-card" style="--i:2" data-action="start-intake" data-service="duplicate">
+          <div class="svc-ico green"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="9" rx="1.8"/><path d="M7 7V4.5A1.5 1.5 0 0 1 8.5 3H18a1.5 1.5 0 0 1 1.5 1.5V13a1.5 1.5 0 0 1-1.5 1.5H16.5"/></svg></div><div class="t">Duplicate licence</div>
+          <div class="d">Reissue a lost, stolen or damaged DL.</div>
+        </button>
+        <button class="svc-card" style="--i:3" data-action="start-intake" data-service="address">
+          <div class="svc-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg></div><div class="t">Change of address</div>
+          <div class="d">Update the address on your licence.</div>
+        </button>
       </div>
     </aside>
    </div>
   </div>
 
   <div class="home-wrap">
-    <div class="home-section-title" id="services-anchor"><h2><span class="i18n-en">Apply online</span><span class="i18n-hi">ऑनलाइन आवेदन करें</span></h2></div>
-    <div class="svc-grid">
-      <button class="svc-card" style="--i:0" data-action="start-intake" data-service="renew">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M17 3.7V8h-4.3"/><path d="M7 20.3V16h4.3"/></svg></div><div class="t">Renew driving licence</div>
-        <div class="d">Renew an expired or expiring DL online.</div>
-      </button>
-      <button class="svc-card" style="--i:1" data-action="start-intake" data-service="new">
-        <div class="svc-ico saffron"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="10" rx="2"/><line x1="6" y1="9" x2="11" y2="9"/><line x1="6" y1="12" x2="9" y2="12"/><circle cx="18" cy="16" r="4"/><line x1="18" y1="14.3" x2="18" y2="17.7"/><line x1="16.3" y1="16" x2="19.7" y2="16"/></svg></div><div class="t">New learner's licence</div>
-        <div class="d">Apply for a fresh LL and book the test.</div>
-      </button>
-      <button class="svc-card" style="--i:2" data-action="start-intake" data-service="duplicate">
-        <div class="svc-ico green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="9" rx="1.8"/><path d="M7 7V4.5A1.5 1.5 0 0 1 8.5 3H18a1.5 1.5 0 0 1 1.5 1.5V13a1.5 1.5 0 0 1-1.5 1.5H16.5"/></svg></div><div class="t">Duplicate licence</div>
-        <div class="d">Reissue a lost, stolen or damaged DL.</div>
-      </button>
-      <button class="svc-card" style="--i:3" data-action="start-intake" data-service="address">
-        <div class="svc-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg></div><div class="t">Change of address</div>
-        <div class="d">Update the address on your licence.</div>
-      </button>
-    </div>
-
     <div class="home-section-title secondary">
       <h2><span class="i18n-en">More services</span><span class="i18n-hi">अन्य सेवाएं</span></h2>
     </div>
@@ -1094,7 +1044,6 @@ async function handleAction(action, el){
     else if(action === 'goto-dashboard'){ await openDashboard(); showScreen('screen-dashboard'); }
     else if(action === 'goto-login'){ showScreen('screen-login'); }
     else if(action === 'goto-home'){ showScreen('screen-home'); }
-    else if(action === 'scroll-services'){ document.getElementById('services-anchor').scrollIntoView({behavior:'smooth'}); }
     else if(action === 'escalate-demo'){ await escalateDemo(); }
     else if(action === 'add-calendar'){ downloadIcs(); }
     else if(action === 'toggle-lang'){ document.body.classList.toggle('lang-hi'); }
