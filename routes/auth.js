@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../db/pool');
+const asyncHandler = require('./asyncHandler');
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ router.post('/send-otp', (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', asyncHandler(async (req, res) => {
   const { mobile, otp } = req.body;
   if (otp !== '123456') {
     return res.status(401).json({ error: 'Incorrect OTP. For this demo use 123456.' });
@@ -28,6 +29,6 @@ router.post('/verify-otp', async (req, res) => {
     citizen = inserted.rows[0];
   }
   res.json({ citizen });
-});
+}));
 
 module.exports = router;

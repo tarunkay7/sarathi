@@ -4,7 +4,7 @@ A prototype reimagining India's driving-licence portal (Sarathi Parivahan Sewa) 
 
 ## Stack
 
-- Frontend: static HTML/CSS/JS (`sarathi.html`), served by the backend
+- Frontend: static HTML/CSS/JS (`public/`), served by the backend
 - Backend: Node.js + Express (`server.js`, `routes/`)
 - Database: Postgres, hosted on [Neon](https://neon.tech)
 - Deployment: [Render](https://render.com), via `render.yaml` (auto-deploys on push to `main`)
@@ -23,11 +23,12 @@ A prototype reimagining India's driving-licence portal (Sarathi Parivahan Sewa) 
    npm install
    ```
 
-2. Create a `.env` file in the project root (copy `.env.example`) and fill in the real value:
+2. Create a `.env` file in the project root (copy `.env.example`) and fill in the real values:
    ```
    DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
+   OPENAI_API_KEY=sk-...
    ```
-   Get the actual connection string from a teammate over a private channel — do not paste it in a commit, issue, or PR.
+   Get these from a teammate over a private channel — do not paste them in a commit, issue, or PR. `OPENAI_API_KEY` is only needed for the "Renew by talking to Setu" voice assistant; the rest of the app works without it.
 
 3. Apply the schema and seed the four licence services:
    ```
@@ -48,9 +49,12 @@ There's no real SMS OTP integration. Enter any 10-digit mobile number and use `1
 ## Project structure
 
 ```
-sarathi.html        frontend (screens, styles, client JS)
+public/
+  index.html         markup for every screen
+  styles.css         all styles
+  app.js             client-side logic (screens, API calls, voice assistant)
 server.js            Express app entrypoint
-routes/              API routes (auth, applications, payments)
+routes/              API routes (auth, applications, payments, realtime voice sessions)
 db/
   schema.sql         table definitions
   migrate.js         applies schema.sql to DATABASE_URL
@@ -62,5 +66,5 @@ render.yaml           Render deployment blueprint
 
 ## Notes for local development
 
-- If you only need to tweak `sarathi.html`'s look and feel and don't need the backend, you can serve it directly with `npx live-server` for auto-reload on save. Anything that calls `/api/...` (login, applying, paying, tracking) needs the real server — use `npm start` and open port 3000 for that.
+- If you only need to tweak `public/index.html`/`styles.css` and don't need the backend, you can serve the `public/` folder directly with `npx live-server public` for auto-reload on save. Anything that calls `/api/...` (login, applying, paying, tracking, voice) needs the real server — use `npm start` and open port 3000 for that.
 - `.env` and `node_modules/` are git-ignored; never commit real credentials.
