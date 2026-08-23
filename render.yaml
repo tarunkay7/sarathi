@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: setu-sarathi
+    name: sarathi
     runtime: node
     plan: free
     buildCommand: npm install && npm run db:migrate && npm run db:seed
