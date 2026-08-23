@@ -14,7 +14,7 @@ const services = [
       { label: 'Passport-size photograph', badge: 'Fetched from DigiLocker' },
       { label: 'Existing driving licence', badge: 'On file' },
     ],
-    eligibility: { form1aMinAge: 40 },
+    eligibility: { form1aMinAge: 40, transportCategoryKeywords: ['Transport', 'HMV', 'HGV', 'HPMV', 'PSV'] },
   },
   {
     key: 'new',

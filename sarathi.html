@@ -6,7 +6,7 @@
 <title>Setu | Sarathi Parivahan — Ministry of Road Transport &amp; Highways, Government of India</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Mulish:wght@500;600;700;800&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Mulish:wght@500;600;700;800&family=Mukta:wght@400;500;600;700&family=Basic&family=Saira:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#241F1C;
@@ -97,6 +97,8 @@
   .panel{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);margin-bottom:18px;overflow:hidden;}
   .panel-head{font-size:13.5px;font-weight:600;padding:13px 18px;border-bottom:1px solid var(--rule-soft);display:flex;align-items:center;justify-content:space-between;color:var(--indigo);background:var(--indigo-soft);}
   .panel-head .sub{font-size:12px;font-weight:500;color:var(--ink-faint);}
+  .panel-head-main{display:flex;align-items:center;gap:8px;}
+  .panel-head-main svg{flex:0 0 auto;}
   .panel-body{padding:18px;}
 
   .field{margin-bottom:16px;}
@@ -134,9 +136,50 @@
   .rec-body .kv .k{color:var(--ink-faint);}
   .rec-actions{padding:0 16px 14px;}
 
+  .dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+  .dash-head .btn{width:auto;}
+  .svc-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .svc-grid.compact .svc-card{padding:13px 12px;gap:5px;}
+  .svc-grid.compact .svc-ico{width:30px;height:30px;border-radius:9px;}
+  .svc-grid.compact .t{font-size:13px;}
+  .profile-strip{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;}
+  .profile-avatar{width:46px;height:46px;border-radius:50%;background:var(--indigo-soft);color:var(--indigo);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;font-size:15px;flex:0 0 auto;}
+  .profile-info{flex:1;min-width:0;}
+  .profile-info .name{font-size:15px;font-weight:700;color:var(--ink);}
+  .profile-info .mobile{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-top:2px;}
+
+  .dash-wrap{max-width:1040px;margin:0 auto;padding:26px 20px 48px;}
+  .dash-grid{display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;margin-top:20px;}
+  .dash-main .panel:last-child{margin-bottom:0;}
+  @media(max-width:860px){.dash-grid{grid-template-columns:1fr;}}
+
+  .doc-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:20px;}
+  @media(max-width:640px){.doc-cards{grid-template-columns:1fr;}}
+  .doc-card{position:relative;overflow:hidden;isolation:isolate;border-radius:16px;padding:15px;color:#fff;background:linear-gradient(135deg,var(--indigo) 0%,var(--indigo-deep) 100%);box-shadow:0 14px 28px rgba(19,27,51,.18);transform-style:preserve-3d;will-change:transform;transition:transform .25s cubic-bezier(.2,.75,.25,1),box-shadow .25s ease;opacity:0;animation:doc-card-in .55s cubic-bezier(.2,.75,.25,1) both;}
+  .doc-cards .doc-card:nth-child(1){animation-delay:.05s;}
+  .doc-cards .doc-card:nth-child(2){animation-delay:.2s;}
+  .doc-card:hover{box-shadow:0 20px 36px rgba(19,27,51,.28);}
+  .doc-card.rc{background:linear-gradient(135deg,var(--green) 0%,#1c5238 100%);box-shadow:0 14px 28px rgba(28,82,56,.18);}
+  .doc-card.rc:hover{box-shadow:0 20px 36px rgba(28,82,56,.3);}
+  .doc-card::before{content:"";position:absolute;z-index:0;top:-40%;right:-25%;width:75%;height:180%;background:rgba(255,255,255,.05);transform:rotate(18deg);pointer-events:none;}
+  .doc-card-watermark{position:absolute;z-index:0;right:-14px;bottom:-14px;width:96px;height:96px;color:#fff;opacity:.14;pointer-events:none;}
+  @keyframes doc-card-in{from{opacity:0;transform:translateY(16px) scale(.97);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion: reduce){.doc-card{animation:none;opacity:1;transition:none;}}
+  .doc-card-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .doc-card-type{font-family:'Basic',sans-serif;font-size:16px;letter-spacing:.02em;font-weight:400;opacity:.95;}
+  .doc-card-chip{position:relative;z-index:1;font-family:'Saira',sans-serif;font-size:11.5px;font-weight:500;letter-spacing:.02em;padding:5px 12px;border-radius:99px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.32);white-space:nowrap;}
+  .doc-card-number{position:relative;z-index:1;font-family:'Saira',sans-serif;font-variant-numeric:tabular-nums;letter-spacing:.03em;font-size:21px;font-weight:500;margin-top:16px;}
+  .doc-card-holder{position:relative;z-index:1;font-family:'Saira',sans-serif;font-size:13px;font-weight:400;letter-spacing:.04em;text-transform:uppercase;opacity:.92;margin-top:6px;}
+  .doc-card-meta{position:relative;z-index:1;display:flex;gap:20px;margin-top:12px;}
+  .doc-card-meta .k{display:block;font-family:'Saira',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.07em;opacity:.7;font-weight:400;}
+  .doc-card-meta .v{display:block;font-family:'Saira',sans-serif;font-variant-numeric:tabular-nums;font-size:15px;font-weight:500;margin-top:4px;}
+  .doc-card-foot{position:relative;z-index:1;display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.16);}
+  .doc-card-btn{flex:0 0 auto;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.4);color:#fff;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:99px;cursor:pointer;transition:background .15s ease;}
+  .doc-card-btn:hover{background:rgba(255,255,255,.3);}
+
   .chip-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
-  .service-chip{background:var(--surface);border:1px solid var(--rule);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:600;color:var(--ink-soft);transition:background .15s,color .15s,border-color .15s;}
-  .service-chip[aria-pressed="true"]{background:var(--indigo);border-color:var(--indigo);color:#fff;}
+  .time-chip{background:var(--surface);border:1px solid var(--rule);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:600;color:var(--ink-soft);transition:background .15s,color .15s,border-color .15s;cursor:pointer;}
+  .time-chip[aria-pressed="true"]{background:var(--indigo);border-color:var(--indigo);color:#fff;}
 
   .infogrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);border-radius:var(--radius);overflow:hidden;margin-bottom:18px;}
   .infogrid .cell{background:var(--surface);padding:10px 14px;font-size:13px;}
@@ -172,6 +215,32 @@
   .steps .st.active{color:var(--indigo);background:var(--indigo-soft);}
   .steps .st.active .n{background:var(--indigo);}
 
+  .substeps{display:flex;gap:8px;margin-bottom:18px;}
+  .substeps .substep{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 6px;border-radius:99px;background:var(--surface-sunk);border:1px solid var(--rule);font-size:12px;font-weight:600;color:var(--ink-faint);}
+  .substeps .substep .n{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--rule);color:#fff;font-size:10px;flex:0 0 auto;}
+  .substeps .substep.done{color:var(--green);border-color:var(--green);}
+  .substeps .substep.done .n{background:var(--green);}
+  .substeps .substep.active{color:var(--indigo);border-color:var(--indigo);background:var(--indigo-soft);}
+  .substeps .substep.active .n{background:var(--indigo);}
+  @media(max-width:480px){.substeps .substep span:last-child{display:none;}}
+
+  .intake-panel{display:none;}
+  .intake-panel.active{display:block;}
+  .intake-nav{display:flex;justify-content:space-between;gap:10px;margin-top:16px;}
+  .intake-nav .btn{width:auto;}
+
+  .cal{border:1px solid var(--rule);border-radius:var(--radius-sm);overflow:hidden;margin-top:10px;}
+  .cal-head{background:var(--surface-sunk);padding:9px 14px;font-size:13px;font-weight:700;color:var(--indigo);text-align:center;border-bottom:1px solid var(--rule-soft);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--rule-soft);}
+  .cal-dow{background:var(--surface);text-align:center;font-size:10px;font-weight:700;color:var(--ink-faint);padding:6px 0;text-transform:uppercase;}
+  .cal-day{background:var(--surface);text-align:center;font-size:13px;font-weight:600;color:var(--ink-faint);padding:10px 0;}
+  .cal-day.empty{background:var(--surface);}
+  .cal-day.available{color:var(--ink);cursor:pointer;position:relative;}
+  .cal-day.available::after{content:"";position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--green);}
+  .cal-day.available:hover{background:var(--green-soft);}
+  .cal-day.selected{background:var(--indigo);color:#fff;}
+  .cal-day.selected::after{background:#fff;}
+  .cal-times{margin-top:14px;}
   .stage-stepper{display:flex;justify-content:space-between;position:relative;margin:16px 0 8px;}
   .stage-stepper::before{content:"";position:absolute;top:7px;left:8%;right:8%;height:2px;background:var(--rule);}
   .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--ink-faint);flex:1;text-align:center;}
@@ -191,6 +260,10 @@
   ul.timeline li::before{content:"";position:absolute;left:-5px;top:12px;width:8px;height:8px;border-radius:50%;background:var(--indigo);}
 
   .spinner{width:26px;height:26px;border:3px solid var(--rule);border-top-color:var(--indigo);border-radius:50%;margin:10px auto;animation:spin .9s linear infinite;}
+  .sync-loading{text-align:center;padding:80px 20px;}
+  .sync-loading .spinner{width:34px;height:34px;border-width:3.5px;margin-bottom:18px;}
+  .sync-loading p{margin:0 0 6px;font-size:15px;font-weight:700;color:var(--ink);}
+  .sync-loading p.hint{font-size:13px;font-weight:600;color:var(--ink-soft);}
   @keyframes spin{to{transform:rotate(360deg);}}
   @media (prefers-reduced-motion: reduce){.spinner{animation:none;}}
   #pay-status{text-align:center;}
@@ -300,6 +373,14 @@
   .foot-inner{max-width:1040px;margin:0 auto;padding:22px 20px;}
   .foot-inner p{font-size:12px;line-height:1.65;margin:0 0 8px;}
   .foot-meta{border-top:1px solid rgba(255,255,255,.1);margin-top:14px;padding-top:14px;font-size:11px;color:#7C88A6;}
+
+  @media print{
+    body > *:not(#main){display:none !important;}
+    #main > *:not(#screen-track){display:none !important;}
+    #screen-track > *:not(#receipt-panel){display:none !important;}
+    #receipt-panel{display:block !important;margin:0;border:none;box-shadow:none;}
+    .wrap{max-width:none !important;padding:0 !important;}
+  }
 </style>
 </head>
 <body>
@@ -480,7 +561,102 @@
   </div>
 </section>
 
+<!-- DASHBOARD (wider layout, lives outside .wrap) -->
+<section class="screen" id="screen-dashboard">
+  <div class="dash-wrap">
+    <div class="crumb"><a href="#" data-action="goto-home">Home</a> › Dashboard</div>
+    <div class="dash-head">
+      <div>
+        <h1>Welcome, <span id="dashboard-name">citizen</span></h1>
+        <p class="lead">All records linked to your registered mobile number.</p>
+      </div>
+      <button class="btn ghost small" data-action="logout">Log out</button>
+    </div>
+
+    <div class="profile-strip">
+      <div class="profile-avatar" id="dashboard-avatar">—</div>
+      <div class="profile-info">
+        <div class="name" id="dashboard-profile-name">—</div>
+        <div class="mobile"><span id="dashboard-mobile">—</span> · <span id="dashboard-state">—</span></div>
+      </div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="dash-main">
+        <div class="doc-cards">
+          <div class="doc-card">
+            <div class="doc-card-top">
+              <span class="doc-card-type">Driving Licence</span>
+              <span class="doc-card-chip">Renewal due</span>
+            </div>
+            <div class="doc-card-number" id="doc-dl-id">DL</div>
+            <div class="doc-card-holder" id="doc-holder">—</div>
+            <div class="doc-card-meta">
+              <div class="m"><span class="k">Valid till</span><span class="v">02 Sep 2026</span></div>
+              <div class="m"><span class="k">Class</span><span class="v">LMV, MCWG</span></div>
+            </div>
+            <div class="doc-card-foot">
+              <button class="doc-card-btn" data-action="start-intake" data-service="renew">Renew now</button>
+            </div>
+          </div>
+          <div class="doc-card rc">
+            <svg class="doc-card-watermark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11h1a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-1a2 2 0 1 1-4 0H8a2 2 0 1 1-4 0H3a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1h1Zm2.1 0h9.8l-1.1-3.5H8.2L7.1 11ZM6 15.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm12 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/></svg>
+            <div class="doc-card-top">
+              <span class="doc-card-type">Vehicle RC</span>
+              <span class="doc-card-chip">Active</span>
+            </div>
+            <div class="doc-card-number">TS09 EF 4821</div>
+            <div class="doc-card-holder">Maruti Swift · Petrol</div>
+            <div class="doc-card-meta">
+              <div class="m"><span class="k">Insurance</span><span class="v">Jan 2027</span></div>
+              <div class="m"><span class="k">Fitness/PUC</span><span class="v">Valid</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Active Applications</span> <span class="sub" id="app-count">None</span></div>
+          <div class="panel-body" id="active-applications">
+            <p class="hint" style="margin:0;">No applications currently in progress.</p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="dash-side">
+        <div class="panel">
+          <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>Apply for a service</span></div>
+          <div class="panel-body">
+            <div class="svc-grid compact">
+              <button class="svc-card" data-action="start-intake" data-service="renew">
+                <div class="svc-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3"/><path d="M17 3.7V8h-4.3"/><path d="M7 20.3V16h4.3"/></svg></div><div class="t">Renew driving licence</div>
+              </button>
+              <button class="svc-card" data-action="start-intake" data-service="new">
+                <div class="svc-ico saffron"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="14" height="10" rx="2"/><line x1="6" y1="9" x2="11" y2="9"/><line x1="6" y1="12" x2="9" y2="12"/><circle cx="18" cy="16" r="4"/><line x1="18" y1="14.3" x2="18" y2="17.7"/><line x1="16.3" y1="16" x2="19.7" y2="16"/></svg></div><div class="t">New learner's licence</div>
+              </button>
+              <button class="svc-card" data-action="start-intake" data-service="duplicate">
+                <div class="svc-ico green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="9" rx="1.8"/><path d="M7 7V4.5A1.5 1.5 0 0 1 8.5 3H18a1.5 1.5 0 0 1 1.5 1.5V13a1.5 1.5 0 0 1-1.5 1.5H16.5"/></svg></div><div class="t">Duplicate licence</div>
+              </button>
+              <button class="svc-card" data-action="start-intake" data-service="address">
+                <div class="svc-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg></div><div class="t">Change of address</div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
 <main id="main" class="wrap">
+
+  <!-- SYNCING -->
+  <section class="screen" id="screen-syncing">
+    <div class="sync-loading">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Syncing your details from DigiLocker…</p>
+      <p class="hint">This usually takes a moment. Your DL, RC, and profile details are being fetched.</p>
+    </div>
+  </section>
 
   <!-- LOGIN -->
   <section class="screen" id="screen-login">
@@ -490,7 +666,7 @@
     <p class="lead i18n-hi">पंजीकृत मोबाइल नंबर से एक बार लॉगिन करें और अपने सभी लाइसेंस व वाहन एक जगह देखें।</p>
 
     <div class="panel">
-      <div class="panel-head"><span class="i18n-en">Login with mobile OTP</span><span class="i18n-hi">मोबाइल OTP से लॉगिन</span></div>
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span><span class="i18n-en">Login with mobile OTP</span><span class="i18n-hi">मोबाइल OTP से लॉगिन</span></span></span></div>
       <div class="panel-body">
         <div class="field">
           <label for="mobile-input">Registered mobile number <span class="req">*</span></label>
@@ -498,11 +674,12 @@
           <p class="error-text" id="mobile-error" hidden>Please enter a valid 10-digit mobile number.</p>
         </div>
         <button class="btn primary" data-action="send-otp">Generate OTP</button>
+        <button class="btn ghost small" style="margin-top:8px;" data-action="autofill-demo">Autofill demo credentials</button>
 
         <div id="otp-step" hidden style="margin-top:16px;">
           <div class="field">
             <label for="otp-input">Enter OTP sent to <span id="otp-phone-label"></span> <span class="req">*</span></label>
-            <input id="otp-input" type="tel" inputmode="numeric" maxlength="6" placeholder="6-digit OTP">
+            <input id="otp-input" type="tel" inputmode="numeric" maxlength="6" placeholder="6-digit OTP" value="123456">
             <p class="hint">Demo OTP for this prototype: <strong>123456</strong></p>
             <p class="error-text" id="otp-error" hidden>Incorrect OTP. For this demo use 123456.</p>
           </div>
@@ -513,117 +690,80 @@
     <div class="banner note">The Ministry will never call or SMS you asking for Aadhaar number, bank details, OTP, or any payment. Report fraud on the National Cyber Crime helpline 1930.</div>
   </section>
 
-  <!-- DASHBOARD -->
-  <section class="screen" id="screen-dashboard">
-    <div class="crumb"><a href="#" data-action="goto-home">Home</a> › Dashboard</div>
-    <h1>Welcome, <span id="dashboard-name">citizen</span></h1>
-    <p class="lead">All records linked to your registered mobile number.</p>
-
-    <div class="panel">
-      <div class="panel-head">My Documents <span class="sub">2 linked</span></div>
-      <div class="panel-body">
-        <div class="rec">
-          <div class="rec-top"><span class="rec-id" id="doc-dl-id">DL</span><span class="status-chip warn">Renewal due</span></div>
-          <div class="rec-body">
-            <div class="kv"><span class="k">Holder</span><span id="doc-holder">—</span></div>
-            <div class="kv"><span class="k">Valid till</span><span>02 Sep 2026 · 12 days left</span></div>
-            <div class="kv"><span class="k">Class</span><span>LMV, MCWG</span></div>
-          </div>
-          <div class="rec-actions"><button class="btn saffron small" data-action="start-intake" data-service="renew">Renew now</button></div>
-        </div>
-        <div class="rec">
-          <div class="rec-top"><span class="rec-id">RC · TS09 EF 4821</span><span class="status-chip ok">Active</span></div>
-          <div class="rec-body">
-            <div class="kv"><span class="k">Vehicle</span><span>Maruti Swift · Petrol</span></div>
-            <div class="kv"><span class="k">Insurance</span><span>Valid till Jan 2027</span></div>
-            <div class="kv"><span class="k">Fitness / PUC</span><span>Valid</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head">Active Applications <span class="sub" id="app-count">None</span></div>
-      <div class="panel-body" id="active-applications">
-        <p class="hint" style="margin:0;">No applications currently in progress.</p>
-      </div>
-    </div>
-
-    <button class="btn ghost" data-action="start-intake" data-service="new">+ Apply for a new service</button>
-  </section>
-
   <!-- INTAKE -->
   <section class="screen" id="screen-intake">
     <div class="crumb"><a href="#" data-action="goto-dashboard">Dashboard</a> › Apply</div>
+
+    <h1 id="intake-title">Driving Licence Service</h1>
+    <p class="lead">Answer once. Your checklist, fee, and available slots are shown upfront — before any payment.</p>
+
     <div class="steps">
       <div class="st active"><span class="n">1</span>Details</div>
       <div class="st"><span class="n">2</span>Pay</div>
       <div class="st"><span class="n">3</span>Track</div>
     </div>
 
-    <h1 id="intake-title">Driving Licence Service</h1>
-    <p class="lead">Answer once. Your checklist, fee, and available slots are shown upfront — before any payment.</p>
+    <div class="substeps" id="intake-substeps">
+      <div class="substep active" data-substep="1"><span class="n">1</span>Confirm details</div>
+      <div class="substep" data-substep="2"><span class="n">2</span>Documents</div>
+      <div class="substep" data-substep="3"><span class="n">3</span>Fee &amp; slot</div>
+    </div>
 
-    <div class="panel">
-      <div class="panel-head">Select service</div>
-      <div class="panel-body">
-        <div class="chip-row">
-          <button class="service-chip" data-service="renew" aria-pressed="true">Renew driving licence</button>
-          <button class="service-chip" data-service="new" aria-pressed="false">New learner's licence</button>
-          <button class="service-chip" data-service="duplicate" aria-pressed="false">Duplicate licence</button>
-          <button class="service-chip" data-service="address" aria-pressed="false">Change of address</button>
+    <div class="intake-panel active" id="intake-panel-1">
+      <div class="infogrid">
+        <div class="cell"><span class="k">Applicant</span><span class="v" id="intake-applicant">—</span></div>
+        <div class="cell auto"><span class="k">State / RTO</span><span class="v" id="intake-state-rto">—</span></div>
+        <div class="cell"><span class="k">DL number</span><span class="v" id="intake-dl-number">—</span></div>
+        <div class="cell auto"><span class="k">Date of birth</span><span class="v" id="intake-dob">—</span></div>
+        <div class="cell auto"><span class="k">Licence class</span><span class="v" id="intake-vehicle-class">—</span></div>
+        <div class="cell auto"><span class="k">Aadhaar KYC</span><span class="v">Verified</span></div>
+      </div>
+      <p class="hint">Fetched automatically from DigiLocker &amp; Aadhaar — nothing to type here.</p>
+      <button class="btn primary" data-action="intake-next">Confirm &amp; continue</button>
+    </div>
+
+    <div class="intake-panel" id="intake-panel-2">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><path d="M9 13l2 2 4-4"/></svg>Documents required</span></div>
+        <div class="panel-body">
+          <ul class="checklist" id="intake-checklist"></ul>
         </div>
       </div>
-    </div>
-
-    <div class="infogrid">
-      <div class="cell"><span class="k">Applicant</span><span class="v" id="intake-applicant">—</span></div>
-      <div class="cell auto"><span class="k">State / RTO</span><span class="v" id="intake-state-rto">—</span></div>
-      <div class="cell"><span class="k">DL number</span><span class="v" id="intake-dl-number">—</span></div>
-      <div class="cell auto"><span class="k">Aadhaar KYC</span><span class="v">Verified</span></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head">Eligibility check</div>
-      <div class="panel-body">
-        <div class="field">
-          <label for="dob-input">Date of birth <span class="req">*</span></label>
-          <input id="dob-input" type="date">
-          <p class="hint">Used to check whether a medical certificate (Form 1A) is required.</p>
-          <p class="error-text" id="dob-error" hidden>Please enter your date of birth to continue.</p>
-        </div>
+      <div class="intake-nav">
+        <button class="btn ghost" data-action="intake-back">Back</button>
+        <button class="btn primary" data-action="intake-next">Looks good, continue</button>
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-head">Documents required</div>
-      <div class="panel-body">
-        <ul class="checklist" id="intake-checklist"></ul>
-      </div>
-    </div>
+    <div class="intake-panel" id="intake-panel-3">
+      <div class="panel">
+        <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1"/></svg>Fee &amp; slot availability</span></div>
+        <div class="panel-body">
+          <table class="fee-table">
+            <tr><td id="intake-fee-label">Service fee</td><td id="intake-fee-amount">₹0</td></tr>
+          </table>
+          <p class="hint">Fixed by RTO Kukatpally. No charges are added later in the process.</p>
 
-    <div class="panel">
-      <div class="panel-head">Fee &amp; slot availability</div>
-      <div class="panel-body">
-        <table class="fee-table">
-          <tr><td id="intake-fee-label">Service fee</td><td id="intake-fee-amount">₹0</td></tr>
-        </table>
-        <p class="hint">Fixed by RTO Kukatpally. No charges are added later in the process.</p>
-
-        <div id="intake-slot-section" hidden>
-          <div class="capacity-bar" style="margin-top:14px;"><div class="capacity-fill" style="width:30%"></div></div>
-          <p class="hint" style="margin-top:0;">12 of 40 appointment slots open this week</p>
-          <div class="slot-choice sel">
-            <input type="radio" name="slot" id="slot-1" checked>
-            <label for="slot-1"><strong>Tue, 02 Sep 2026</strong> · 10:00–11:00 AM · RTO Kukatpally</label>
+          <div id="intake-slot-section" hidden>
+            <p class="hint" style="margin-top:14px;">Pick an available date for your RTO visit (photo &amp; biometric capture).</p>
+            <div class="cal" id="intake-calendar">
+              <div class="cal-head"><span id="cal-month-label">—</span></div>
+              <div class="cal-grid" id="cal-grid"></div>
+            </div>
+            <div class="cal-times" id="cal-times" hidden>
+              <p class="hint" style="margin-top:0;">Available times for <strong id="cal-selected-date">—</strong>:</p>
+              <div class="chip-row" id="cal-time-chips"></div>
+            </div>
+            <p class="hint" id="cal-slot-summary"></p>
           </div>
-          <p class="hint">Also open: Wed 03 Sep, Thu 04 Sep, Mon 08 Sep, Tue 09 Sep.</p>
+          <div id="intake-no-slot" class="banner note" hidden style="margin-top:14px;">No RTO visit is required for this service — it's processed entirely online.</div>
         </div>
-        <div id="intake-no-slot" class="banner note" hidden style="margin-top:14px;">No RTO visit is required for this service — it's processed entirely online.</div>
+      </div>
+      <div class="intake-nav">
+        <button class="btn ghost" data-action="intake-back">Back</button>
+        <button class="btn primary" data-action="goto-pay">Proceed to payment</button>
       </div>
     </div>
-
-    <button class="btn primary" data-action="goto-pay">Proceed to payment</button>
   </section>
 
   <!-- PAY -->
@@ -639,14 +779,14 @@
     <p class="lead">Every payment attempt is protected — you cannot be charged twice.</p>
 
     <div class="panel">
-      <div class="panel-head">Application summary <span class="sub" id="pay-summary-fee">₹0</span></div>
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.3L14 21l-2-1.3L10 21l-2-1.3L6 21V3Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>Application summary</span> <span class="sub" id="pay-summary-fee">₹0</span></div>
       <div class="panel-body">
         <ul class="checklist" id="pay-summary-list"></ul>
       </div>
     </div>
 
     <div class="panel">
-      <div class="panel-head">Payment method</div>
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Payment method</span></div>
       <div class="panel-body">
         <div class="slot-choice sel"><input type="radio" name="pm" id="pm-upi" checked><label for="pm-upi">UPI (BHIM / GPay / PhonePe / Paytm)</label></div>
         <div class="slot-choice"><input type="radio" name="pm" id="pm-card"><label for="pm-card">Debit / Credit card</label></div>
@@ -678,7 +818,7 @@
     <p class="lead">Tracked automatically under your account — no application number to re-enter.</p>
 
     <div class="panel">
-      <div class="panel-head">Reference <span class="sub" id="track-id">TS-DL-2026-4821</span></div>
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h9l7 7-9 9-7-7Z"/><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none"/></svg>Reference</span> <span class="sub" id="track-id">TS-DL-2026-4821</span></div>
       <div class="panel-body">
         <div class="stage-stepper">
           <div class="stage done" id="stage-submitted"><span class="dot"></span>Submitted</div>
@@ -696,7 +836,7 @@
     </div>
 
     <div class="panel">
-      <div class="panel-head">Timeline</div>
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Timeline</span></div>
       <div class="panel-body">
         <ul class="timeline" id="timeline-log">
           <li>Under review · 22 Aug 2026, 10:16 IST</li>
@@ -706,8 +846,24 @@
       </div>
     </div>
 
+    <div class="panel" id="receipt-panel">
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.3L14 21l-2-1.3L10 21l-2-1.3L6 21V3Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>Receipt</span></div>
+      <div class="panel-body">
+        <div class="rec-body" style="padding:4px 0;">
+          <div class="kv"><span class="k">Applicant</span><span id="receipt-name">—</span></div>
+          <div class="kv"><span class="k">Service</span><span id="receipt-service">—</span></div>
+          <div class="kv"><span class="k">Reference</span><span id="receipt-ref">—</span></div>
+          <div class="kv"><span class="k">Amount paid</span><span id="receipt-amount">—</span></div>
+          <div class="kv"><span class="k">Payment method</span><span id="receipt-method">—</span></div>
+          <div class="kv"><span class="k">RTO</span><span id="receipt-rto">—</span></div>
+          <div class="kv"><span class="k">Date &amp; time</span><span id="receipt-datetime">—</span></div>
+        </div>
+        <button class="btn ghost small" data-action="print-receipt" style="margin-top:10px;">Print / Save as PDF</button>
+      </div>
+    </div>
+
     <div class="panel" id="track-appointment-panel">
-      <div class="panel-head">Your RTO appointment</div>
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="7" y1="3" x2="7" y2="7"/><line x1="17" y1="3" x2="17" y2="7"/><path d="M8.5 14.5l2 2 4.5-4.5"/></svg>Your RTO appointment</span></div>
       <div class="panel-body">
         <div class="banner note" style="margin-top:0;">A visit is required only for photo &amp; biometric capture.</div>
         <div class="rec-body" style="padding:4px 0;">
@@ -772,16 +928,65 @@ function formatDateTime(d){
 
 function rupees(cents){ return '₹' + Math.round(cents / 100); }
 
+function delay(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms); }); }
+
+async function syncAndShowDashboard(){
+  showScreen('screen-syncing');
+  await Promise.all([openDashboard(), delay(1400)]);
+  showScreen('screen-dashboard');
+}
+
+function initDocCardTilt(){
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduceMotion) return;
+  document.querySelectorAll('.doc-card').forEach(function(card){
+    card.addEventListener('mousemove', function(e){
+      var rect = card.getBoundingClientRect();
+      var x = (e.clientX - rect.left) / rect.width;
+      var y = (e.clientY - rect.top) / rect.height;
+      var rotateY = (x - 0.5) * 10;
+      var rotateX = (0.5 - y) * -10;
+      card.style.transform = 'perspective(700px) rotateX(' + rotateX + 'deg) rotateY(' + rotateY + 'deg)';
+    });
+    card.addEventListener('mouseleave', function(){
+      card.style.transform = '';
+    });
+  });
+}
+
 function updateEligibility(){
-  var dob = document.getElementById('dob-input');
   var form1a = document.getElementById('form1a-line');
   if(!form1a) return;
-  var minAge = session.service && session.service.eligibility && session.service.eligibility.form1aMinAge;
-  if(!dob.value || !minAge){ form1a.hidden = true; return; }
-  document.getElementById('dob-error').hidden = true;
-  var birth = new Date(dob.value);
+  var eligibility = (session.service && session.service.eligibility) || {};
+  var minAge = eligibility.form1aMinAge;
+  var keywords = eligibility.transportCategoryKeywords || [];
+  var vehicleClasses = (session.citizen && session.citizen.vehicle_classes) || '';
+  var isTransportCategory = keywords.some(function(word){ return vehicleClasses.indexOf(word) !== -1; });
+
+  if(isTransportCategory){
+    document.getElementById('form1a-reason').textContent = 'required, your licence covers a Transport Category vehicle';
+    form1a.hidden = false;
+    return;
+  }
+  var dob = session.citizen && session.citizen.dob;
+  if(!dob || !minAge){ form1a.hidden = true; return; }
+  var birth = new Date(dob);
   var age = Math.floor((Date.now() - birth.getTime()) / (365.25*24*3600*1000));
+  document.getElementById('form1a-reason').textContent = 'required, applicant is ' + minAge + ' or above';
   form1a.hidden = age < minAge;
+}
+
+var intakeSubstep = 1;
+
+function renderIntakeSubsteps(){
+  document.querySelectorAll('.intake-panel').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById('intake-panel-' + intakeSubstep).classList.add('active');
+  document.querySelectorAll('#intake-substeps .substep').forEach(function(s){
+    var n = Number(s.getAttribute('data-substep'));
+    s.classList.toggle('done', n < intakeSubstep);
+    s.classList.toggle('active', n === intakeSubstep);
+  });
+  window.scrollTo(0, 0);
 }
 
 function renderIntakeScreen(){
@@ -790,6 +995,8 @@ function renderIntakeScreen(){
   document.getElementById('intake-applicant').textContent = session.citizen.name;
   document.getElementById('intake-state-rto').textContent = session.citizen.state + ' · ' + session.citizen.rto;
   document.getElementById('intake-dl-number').textContent = session.citizen.dl_number || '—';
+  document.getElementById('intake-dob').textContent = session.citizen.dob ? formatDate(session.citizen.dob) : '—';
+  document.getElementById('intake-vehicle-class').textContent = session.citizen.vehicle_classes || '—';
 
   var list = document.getElementById('intake-checklist');
   list.innerHTML = '';
@@ -802,7 +1009,7 @@ function renderIntakeScreen(){
   form1a.className = 'extra';
   form1a.id = 'form1a-line';
   form1a.hidden = true;
-  form1a.innerHTML = '<span class="tick">✓</span> Medical certificate (Form 1A) — <strong>required, applicant is 40 or above</strong>';
+  form1a.innerHTML = '<span class="tick">✓</span> Medical certificate (Form 1A) — <strong id="form1a-reason">required</strong>';
   list.appendChild(form1a);
 
   document.getElementById('intake-fee-label').textContent = service.title + ' (' + service.form_number + ')';
@@ -810,9 +1017,73 @@ function renderIntakeScreen(){
   document.getElementById('intake-slot-section').hidden = !service.requires_slot;
   document.getElementById('intake-no-slot').hidden = !!service.requires_slot;
 
-  document.getElementById('dob-input').value = '';
-  document.getElementById('dob-error').hidden = true;
+  session.selectedSlot = null;
+  document.getElementById('cal-times').hidden = true;
+  document.getElementById('cal-slot-summary').textContent = '';
+  if(service.requires_slot) renderCalendar();
+
   updateEligibility();
+  intakeSubstep = 1;
+  renderIntakeSubsteps();
+}
+
+var CAL_YEAR = 2026, CAL_MONTH = 8;
+var CAL_AVAILABLE_DAYS = [2, 3, 4, 8, 9];
+var CAL_TIMES = ['10:00–11:00 AM', '12:00–1:00 PM', '3:00–4:00 PM'];
+var CAL_MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function renderCalendar(){
+  document.getElementById('cal-month-label').textContent = CAL_MONTH_NAMES[CAL_MONTH] + ' ' + CAL_YEAR;
+  var grid = document.getElementById('cal-grid');
+  grid.innerHTML = '';
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(function(d){
+    var el = document.createElement('div');
+    el.className = 'cal-dow';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+  var firstDay = new Date(CAL_YEAR, CAL_MONTH, 1).getDay();
+  var leadBlanks = (firstDay + 6) % 7;
+  var daysInMonth = new Date(CAL_YEAR, CAL_MONTH + 1, 0).getDate();
+  for(var i = 0; i < leadBlanks; i++){
+    var blank = document.createElement('div');
+    blank.className = 'cal-day empty';
+    grid.appendChild(blank);
+  }
+  for(var day = 1; day <= daysInMonth; day++){
+    var cell = document.createElement('div');
+    cell.textContent = day;
+    if(CAL_AVAILABLE_DAYS.indexOf(day) !== -1){
+      cell.className = 'cal-day available';
+      cell.addEventListener('click', function(d, el){ return function(){ selectCalendarDay(d, el); }; }(day, cell));
+    } else {
+      cell.className = 'cal-day';
+    }
+    grid.appendChild(cell);
+  }
+}
+
+function selectCalendarDay(day, cell){
+  document.querySelectorAll('.cal-day.available').forEach(function(el){ el.classList.remove('selected'); });
+  cell.classList.add('selected');
+  var dateLabel = formatDate(new Date(CAL_YEAR, CAL_MONTH, day).toISOString());
+  document.getElementById('cal-selected-date').textContent = dateLabel;
+  document.getElementById('cal-times').hidden = false;
+  var chips = document.getElementById('cal-time-chips');
+  chips.innerHTML = '';
+  CAL_TIMES.forEach(function(time){
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'time-chip';
+    chip.textContent = time;
+    chip.addEventListener('click', function(){
+      chips.querySelectorAll('.time-chip').forEach(function(c){ c.setAttribute('aria-pressed', 'false'); });
+      chip.setAttribute('aria-pressed', 'true');
+      session.selectedSlot = { day: day, date: dateLabel, time: time };
+      document.getElementById('cal-slot-summary').textContent = 'Selected: ' + dateLabel + ' · ' + time + ' · RTO ' + session.citizen.rto;
+    });
+    chips.appendChild(chip);
+  });
 }
 
 async function startIntake(serviceKey){
@@ -822,7 +1093,6 @@ async function startIntake(serviceKey){
   session.applicationId = created.application.id;
   session.referenceCode = created.application.reference_code;
 
-  document.querySelectorAll('.service-chip').forEach(function(c){ c.setAttribute('aria-pressed', c.getAttribute('data-service') === serviceKey ? 'true' : 'false'); });
   renderIntakeScreen();
   showScreen('screen-intake');
 }
@@ -855,6 +1125,7 @@ async function runPayment(delay){
     (delay ? '<p id="pay-timer">Awaiting bank confirmation — 0s</p>' : '');
 
   try{
+    session.lastPaymentMethod = selectedPaymentMethod();
     var created = await api('/api/payments', { method:'POST', body:{
       applicationId: session.applicationId,
       amountCents: session.service.fee_cents,
@@ -917,6 +1188,15 @@ function renderTrackScreen(){
   });
 
   document.getElementById('track-appointment-panel').hidden = !service.requires_slot;
+
+  var payEvent = session.timeline.find(function(evt){ return evt.label.indexOf('Payment confirmed') === 0; });
+  document.getElementById('receipt-name').textContent = session.citizen.name;
+  document.getElementById('receipt-service').textContent = service.title;
+  document.getElementById('receipt-ref').textContent = application.reference_code;
+  document.getElementById('receipt-amount').textContent = rupees(service.fee_cents);
+  document.getElementById('receipt-method').textContent = session.lastPaymentMethod || '—';
+  document.getElementById('receipt-rto').textContent = session.citizen.state + ' · ' + session.citizen.rto;
+  document.getElementById('receipt-datetime').textContent = payEvent ? formatDateTime(payEvent.occurred_at) : '—';
 }
 
 async function openTrack(){
@@ -948,9 +1228,21 @@ async function escalateDemo(){
   document.getElementById('escalation-banner').focus();
 }
 
+function initials(name){
+  return name.split(' ').filter(Boolean).slice(0, 2).map(function(w){ return w[0].toUpperCase(); }).join('');
+}
+
+function maskMobile(mobile){
+  return '+91 ' + mobile.slice(0, 2) + 'XXXXX' + mobile.slice(-3);
+}
+
 async function openDashboard(){
   document.getElementById('dashboard-name').textContent = session.citizen.name;
-  document.getElementById('doc-dl-id').textContent = 'DL · ' + (session.citizen.dl_number || '—');
+  document.getElementById('dashboard-avatar').textContent = initials(session.citizen.name);
+  document.getElementById('dashboard-profile-name').textContent = session.citizen.name;
+  document.getElementById('dashboard-mobile').textContent = maskMobile(session.citizen.mobile_number);
+  document.getElementById('dashboard-state').textContent = session.citizen.state + ' · ' + session.citizen.rto + ' RTO';
+  document.getElementById('doc-dl-id').textContent = session.citizen.dl_number || '—';
   document.getElementById('doc-holder').textContent = session.citizen.name;
 
   var data = await api('/api/applications/citizen/' + session.citizen.id);
@@ -986,7 +1278,11 @@ function applyFont(){ document.documentElement.style.fontSize = fontScale + '%';
 
 async function handleAction(action, el){
   try{
-    if(action === 'send-otp'){
+    if(action === 'autofill-demo'){
+      document.getElementById('mobile-input').value = '9000000001';
+      document.getElementById('mobile-error').hidden = true;
+    }
+    else if(action === 'send-otp'){
       var m = document.getElementById('mobile-input');
       if(!/^\d{10}$/.test(m.value.trim())){ document.getElementById('mobile-error').hidden=false; return; }
       await api('/api/auth/send-otp', { method:'POST', body:{ mobile: m.value.trim() } });
@@ -1001,12 +1297,12 @@ async function handleAction(action, el){
       var data = await api('/api/auth/verify-otp', { method:'POST', body:{ mobile: session.mobile, otp: otp } });
       document.getElementById('otp-error').hidden = true;
       session.citizen = data.citizen;
+      localStorage.setItem('setu_citizen', JSON.stringify(data.citizen));
       if(session.pendingService){
         var s = session.pendingService; session.pendingService = null;
         await startIntake(s);
       } else {
-        await openDashboard();
-        showScreen('screen-dashboard');
+        await syncAndShowDashboard();
       }
     }
     else if(action === 'start-intake'){
@@ -1014,9 +1310,13 @@ async function handleAction(action, el){
       if(!session.citizen){ session.pendingService = s2; showScreen('screen-login'); return; }
       await startIntake(s2);
     }
+    else if(action === 'intake-next'){ intakeSubstep = Math.min(3, intakeSubstep + 1); renderIntakeSubsteps(); }
+    else if(action === 'intake-back'){ intakeSubstep = Math.max(1, intakeSubstep - 1); renderIntakeSubsteps(); }
     else if(action === 'goto-pay'){
-      var d = document.getElementById('dob-input');
-      if(!d.value){ document.getElementById('dob-error').hidden=false; d.focus(); return; }
+      if(session.service.requires_slot && !session.selectedSlot){
+        document.getElementById('cal-slot-summary').textContent = 'Please pick a date and time above to continue.';
+        return;
+      }
       renderPayScreen();
       showScreen('screen-pay');
     }
@@ -1042,8 +1342,14 @@ async function handleAction(action, el){
     else if(action === 'goto-dashboard'){ await openDashboard(); showScreen('screen-dashboard'); }
     else if(action === 'goto-login'){ showScreen('screen-login'); }
     else if(action === 'goto-home'){ showScreen('screen-home'); }
+    else if(action === 'logout'){
+      localStorage.removeItem('setu_citizen');
+      session.citizen = null; session.applicationId = null; session.referenceCode = null; session.service = null; session.application = null;
+      showScreen('screen-home');
+    }
     else if(action === 'escalate-demo'){ await escalateDemo(); }
     else if(action === 'add-calendar'){ downloadIcs(); }
+    else if(action === 'print-receipt'){ window.print(); }
     else if(action === 'toggle-lang'){ document.body.classList.toggle('lang-hi'); }
     else if(action === 'font-inc'){ fontScale = Math.min(130, fontScale+10); applyFont(); }
     else if(action === 'font-dec'){ fontScale = Math.max(90, fontScale-10); applyFont(); }
@@ -1061,13 +1367,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(t.tagName === 'A') e.preventDefault();
     handleAction(t.getAttribute('data-action'), t);
   });
-  document.querySelectorAll('.service-chip').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      var key = chip.getAttribute('data-service');
-      if(session.citizen) startIntake(key);
-    });
-  });
-  document.getElementById('dob-input').addEventListener('change', updateEligibility);
+  initDocCardTilt();
+
+  var saved = localStorage.getItem('setu_citizen');
+  if(saved){
+    session.citizen = JSON.parse(saved);
+    syncAndShowDashboard();
+  }
 });
 </script>
 </body>
