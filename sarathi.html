@@ -66,7 +66,6 @@
   .masthead-inner{max-width:1040px;margin:0 auto;padding:16px 20px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;}
   .mast-help{font-size:12px;color:var(--ink-soft);font-weight:600;justify-self:start;max-width:220px;line-height:1.35;}
   .mast-brand{display:flex;align-items:center;gap:14px;justify-self:center;}
-  .mast-actions{justify-self:end;}
   @media(max-width:640px){
     .masthead-inner{grid-template-columns:1fr;justify-items:center;gap:10px;}
     .mast-help{display:none;}
@@ -240,15 +239,15 @@
   }
 
   .word-rotator{display:inline-grid;height:1.2em;overflow:hidden;vertical-align:bottom;padding-right:.15em;}
-  .word-rotator span{grid-row:1;grid-column:1;align-self:start;opacity:0;white-space:nowrap;animation:wordRotate 6s infinite;}
+  .word-rotator span{grid-row:1;grid-column:1;align-self:start;opacity:0;white-space:nowrap;animation:wordRotate 9s infinite;}
   .word-rotator span:nth-child(1){animation-delay:0s;}
-  .word-rotator span:nth-child(2){animation-delay:2s;}
-  .word-rotator span:nth-child(3){animation-delay:4s;}
+  .word-rotator span:nth-child(2){animation-delay:3s;}
+  .word-rotator span:nth-child(3){animation-delay:6s;}
   @keyframes wordRotate{
     0%{opacity:0;transform:translateY(10px);}
-    2%{opacity:1;transform:translateY(0);}
-    20%{opacity:1;transform:translateY(0);}
-    23%{opacity:0;transform:translateY(-10px);}
+    4%{opacity:1;transform:translateY(0);}
+    24%{opacity:1;transform:translateY(0);}
+    30%{opacity:0;transform:translateY(-10px);}
     100%{opacity:0;}
   }
   @media (prefers-reduced-motion: reduce){
@@ -363,7 +362,6 @@
         </div>
       </div>
     </div>
-    <div class="mast-actions"><button class="btn ghost small" data-action="goto-login">Login / Register</button></div>
   </div>
 </header>
 <div class="tricolour" aria-hidden="true"></div>
