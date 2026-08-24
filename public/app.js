@@ -583,10 +583,6 @@ function resetVoiceScreen(){
   document.getElementById('voice-mic-dot').classList.remove('live');
   document.getElementById('voice-toggle-btn').hidden = false;
   document.getElementById('voice-toggle-btn').disabled = false;
-  document.getElementById('voice-view-application').hidden = true;
-  var input = document.getElementById('voice-text-input');
-  input.disabled = true;
-  input.value = '';
   voiceCaptionBuffer = '';
   voiceCaptionRevealed = '';
   if(voiceCaptionRevealTimer){ clearInterval(voiceCaptionRevealTimer); voiceCaptionRevealTimer = null; }
@@ -689,13 +685,11 @@ async function handleVoiceToolCall(name, args, callId){
         result = { error: 'No application has been started yet — call start_application first.' };
       } else {
         renderVoiceProgress('track');
-        document.getElementById('voice-view-application').hidden = false;
         result = { ok: true, referenceCode: session.referenceCode };
       }
     }
     else if(name === 'end_call'){
       result = { ok: true };
-      document.getElementById('voice-text-input').disabled = true;
     }
     else {
       result = { error: 'Unknown tool: ' + name };
@@ -796,7 +790,6 @@ async function startVoiceRenewal(){
       setVoiceCaption('');
       document.getElementById('voice-mic-dot').classList.add('live');
       btn.hidden = true;
-      document.getElementById('voice-text-input').disabled = false;
       requestVoiceResponse(0);
     });
     voiceDC.addEventListener('message', function(e){
@@ -939,16 +932,6 @@ document.addEventListener('DOMContentLoaded', function(){
     handleAction(t.getAttribute('data-action'), t);
   });
   initDocCardTilt();
-
-  document.getElementById('voice-text-input').addEventListener('keydown', function(e){
-    if(e.key !== 'Enter') return;
-    var text = e.target.value.trim();
-    if(!text || !voiceDC || voiceDC.readyState !== 'open') return;
-    setVoiceUserCaption(text);
-    sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: text }] } });
-    requestVoiceResponse(150);
-    e.target.value = '';
-  });
 
   var saved = localStorage.getItem('setu_citizen');
   if(saved){
