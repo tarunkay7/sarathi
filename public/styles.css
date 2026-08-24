@@ -349,16 +349,36 @@
   .rto-map-foot .btn{width:auto;text-decoration:none;}
   @media print{.rto-map-frame{display:none;}}
 
-  .upload-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 0 26px;padding:10px 12px;border:1px dashed var(--rule);border-radius:var(--radius-sm);background:var(--surface-sunk);}
-  .upload-row input[type=file]{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink-soft);max-width:100%;min-width:0;}
-  .upload-row input[type=file]::file-selector-button{font-family:var(--font-body);font-size:12.5px;font-weight:700;color:var(--indigo);background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:6px 12px;margin-right:10px;cursor:pointer;}
-  .upload-row.done{border-style:solid;border-color:var(--green);background:var(--green-soft);}
-  .upload-row.failed{border-style:solid;border-color:var(--red);background:var(--red-soft);}
-  /* Inside a voice card the row is already indented by the card body. */
-  .vcard .upload-row{margin:8px 0 0;background:rgba(255,255,255,.65);}
-  .upload-status{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
-  .upload-row.done .upload-status{color:var(--green);}
-  .upload-row.failed .upload-status{color:var(--red);}
+  .uploader{margin:10px 0 2px 26px;}
+  .vcard .uploader{margin:10px 0 0;}
+  .uploader-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+  .uploader-drop{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px dashed var(--rule);border-radius:var(--radius-sm);background:var(--surface-sunk);cursor:pointer;transition:border-color .15s ease,background-color .15s ease,transform .1s ease;}
+  .uploader-drop:hover{border-color:var(--indigo);background:var(--indigo-soft);}
+  .uploader-input:focus-visible + .uploader-drop{outline:3px solid var(--saffron);outline-offset:2px;}
+  .uploader.is-over .uploader-drop{border-color:var(--indigo);background:var(--indigo-soft);border-style:solid;transform:scale(1.01);}
+  .uploader.is-busy .uploader-drop{opacity:.65;pointer-events:none;}
+  .uploader.is-error .uploader-drop{border-color:var(--red);background:var(--red-soft);}
+  /* The drop target and the result swap places rather than stacking. */
+  .uploader.is-done .uploader-drop{display:none;}
+  .uploader-ico{width:34px;height:34px;border-radius:9px;background:var(--surface);border:1px solid var(--rule);color:var(--indigo);display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .uploader-ico svg{width:17px;height:17px;}
+  .uploader-copy{display:flex;flex-direction:column;font-size:13px;font-weight:600;color:var(--ink-soft);min-width:0;}
+  .uploader-copy strong{color:var(--indigo);font-weight:700;}
+  .uploader-hint{font-size:11.5px;color:var(--ink-faint);margin-top:2px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;}
+
+  .uploader-done{display:none;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--green);border-radius:var(--radius-sm);background:var(--green-soft);}
+  .uploader.is-done .uploader-done{display:flex;}
+  .uploader-thumb{width:42px;height:42px;border-radius:8px;object-fit:cover;background:var(--surface);border:1px solid var(--rule);flex:0 0 auto;}
+  .uploader-thumb.as-file{display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;letter-spacing:.03em;color:var(--green);}
+  .uploader-meta{display:flex;flex-direction:column;min-width:0;flex:1;}
+  .uploader-name{font-size:13px;font-weight:700;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .uploader-sub{font-size:11.5px;font-weight:700;color:var(--green);margin-top:2px;}
+  .uploader-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto;}
+  .uploader-link{background:none;border:none;padding:0;font-family:var(--font-body);font-size:12.5px;font-weight:700;color:var(--indigo);text-decoration:underline;cursor:pointer;}
+  .uploader-link.danger{color:var(--red);}
+  .uploader-error{margin:8px 0 0;font-size:12.5px;font-weight:700;color:var(--red);}
+  .uploader-error[hidden]{display:none;}
+  @media(prefers-reduced-motion: reduce){.uploader-drop{transition:none;}.uploader.is-over .uploader-drop{transform:none;}}
 
   .doclist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
   .doclist li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid var(--rule-soft);border-radius:var(--radius-sm);background:var(--surface);flex-wrap:wrap;}

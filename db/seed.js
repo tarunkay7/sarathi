@@ -59,17 +59,34 @@ const services = [
     eligibility: {},
   },
   {
-    key: 'address',
-    title: 'Change of Address',
-    form_number: 'Form 33',
-    fee_cents: 20000,
-    requires_slot: false,
-    expected_days: 3,
+    // Replaces the change-of-address service. Parivahan lists 7 stages here
+    // too, with the same two problems as the learner's licence: "verify the pay
+    // status" is the system reconciling with the bank, and "print the receipt"
+    // is an artifact — neither is a task the citizen should be handed. The two
+    // upload stages are also one idea. Test slot booking already precedes
+    // payment upstream, so that ordering carries over unchanged.
+    key: 'dl',
+    title: 'Permanent Driving Licence',
+    form_number: 'Form 4',
+    // Demo figure covering the driving test and licence issue. Real fees are
+    // set per state — confirm against the Telangana schedule before quoting.
+    fee_cents: 70000,
+    requires_slot: true,
+    slot_purpose: 'your driving skill test',
+    carry_items: "Acknowledgement slip, your learner's licence, and the vehicle you will be tested on",
+    // The dependency that trips people up: unlike every other service here,
+    // this one cannot be started until a separate licence has been held for a
+    // while, so it is stated before any details are confirmed.
+    prerequisite_note: "You need a valid learner's licence for the same vehicle class, issued at least 30 days ago and not yet expired.",
+    expected_days: 7,
     checklist: [
-      { label: 'Proof of new address' },
-      { label: 'Existing driving licence', badge: 'On file' },
+      { label: "Valid learner's licence", badge: 'On file' },
+      { label: 'Proof of age and address', badge: 'Fetched from Aadhaar eKYC' },
+      { label: 'Passport-size photograph', badge: 'Fetched from Aadhaar eKYC' },
+      { label: 'Specimen signature', badge: 'One-time upload', upload: 'signature' },
+      { label: 'Self-declaration of physical fitness (Form 1)', badge: 'Declared online' },
     ],
-    eligibility: {},
+    eligibility: { form1aMinAge: 40, transportCategoryKeywords: ['Transport', 'HMV', 'HGV', 'HPMV', 'PSV'] },
   },
 ];
 
@@ -93,7 +110,7 @@ const rtos = [
 const rtoPincodes = {
   Kukatpally: ['500072', '500085', '500018', '500037'],
   Khairatabad: ['500004', '500082', '500063', '500001'],
-  Uppal: ['500039', '500098', '500092'],
+  Uppal: ['500039', '500098', '500092', '500076', '500013'],
   Medchal: ['501401', '500100'],
   Ibrahimpatnam: ['501510', '501505'],
 };
@@ -130,8 +147,8 @@ async function main() {
 
   for (const svc of services) {
     await pool.query(
-      `INSERT INTO services (key, title, form_number, fee_cents, requires_slot, slot_purpose, carry_items, expected_days, checklist, eligibility)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      `INSERT INTO services (key, title, form_number, fee_cents, requires_slot, slot_purpose, carry_items, prerequisite_note, expected_days, checklist, eligibility)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        ON CONFLICT (key) DO UPDATE SET
          title = EXCLUDED.title,
          form_number = EXCLUDED.form_number,
@@ -139,6 +156,7 @@ async function main() {
          requires_slot = EXCLUDED.requires_slot,
          slot_purpose = EXCLUDED.slot_purpose,
          carry_items = EXCLUDED.carry_items,
+         prerequisite_note = EXCLUDED.prerequisite_note,
          expected_days = EXCLUDED.expected_days,
          checklist = EXCLUDED.checklist,
          eligibility = EXCLUDED.eligibility`,
@@ -150,6 +168,7 @@ async function main() {
         svc.requires_slot,
         svc.slot_purpose || null,
         svc.carry_items || null,
+        svc.prerequisite_note || null,
         svc.expected_days,
         JSON.stringify(svc.checklist),
         JSON.stringify(svc.eligibility),

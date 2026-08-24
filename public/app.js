@@ -94,51 +94,108 @@ function missingUploads(){
   return requiredUploads(session.service, session.citizen).filter(function(u){ return !done[u.kind]; });
 }
 
+var UPLOAD_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>';
+
+function acceptLabel(accept){
+  return accept.split(',')
+    .map(function(m){ return m.split('/')[1].replace('jpeg', 'JPG').toUpperCase(); })
+    .join(' · ');
+}
+
 function buildUploadRow(kind, accept, onDone){
-  var row = document.createElement('div');
-  row.className = 'upload-row';
+  var box = document.createElement('div');
+  box.className = 'uploader';
 
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = accept;
-  input.setAttribute('aria-label', 'Upload file');
+  input.className = 'uploader-input';
+  input.id = 'up-' + kind + '-' + Math.random().toString(36).slice(2, 7);
 
-  var status = document.createElement('span');
-  status.className = 'upload-status';
+  var label = document.createElement('label');
+  label.className = 'uploader-drop';
+  label.htmlFor = input.id;
+  label.innerHTML =
+    '<span class="uploader-ico">' + UPLOAD_ICON + '</span>' +
+    '<span class="uploader-copy"><strong>Choose a file</strong> or drag it here' +
+    '<span class="uploader-hint">' + acceptLabel(accept) + ' · up to 4 MB</span></span>';
 
-  var already = (session.uploads || {})[kind];
-  if(already){
-    row.classList.add('done');
-    status.textContent = '✓ Uploaded · ' + humanSize(already.size_bytes);
-  } else {
-    status.textContent = 'Not uploaded yet';
+  var done = document.createElement('div');
+  done.className = 'uploader-done';
+
+  var err = document.createElement('p');
+  err.className = 'uploader-error';
+  err.hidden = true;
+
+  function showDone(doc, previewUrl){
+    var isImage = doc.mime_type.indexOf('image/') === 0;
+    done.innerHTML =
+      (isImage && previewUrl
+        ? '<img class="uploader-thumb" alt="" src="' + previewUrl + '">'
+        : '<span class="uploader-thumb as-file">' + doc.mime_type.split('/')[1].toUpperCase() + '</span>') +
+      '<span class="uploader-meta"><span class="uploader-name">' + doc.filename + '</span>' +
+      '<span class="uploader-sub">' + humanSize(doc.size_bytes) + ' · uploaded</span></span>' +
+      '<span class="uploader-actions">' +
+        '<a class="uploader-link" href="/api/documents/' + doc.id + '/download">Download</a>' +
+        '<button type="button" class="uploader-link danger" data-remove>Replace</button>' +
+      '</span>';
+    done.querySelector('[data-remove]').addEventListener('click', function(){
+      // Clearing local state is enough: re-uploading overwrites the row, so a
+      // failed delete would not orphan anything.
+      fetch('/api/documents/' + doc.id, { method: 'DELETE' }).catch(function(){});
+      if(session.uploads) delete session.uploads[kind];
+      if(previewUrl) URL.revokeObjectURL(previewUrl);
+      input.value = '';
+      box.classList.remove('is-done');
+      done.innerHTML = '';
+    });
+    box.classList.add('is-done');
   }
 
-  input.addEventListener('change', async function(){
-    var file = input.files && input.files[0];
+  var already = (session.uploads || {})[kind];
+  if(already) showDone(already, null);
+
+  async function handleFile(file){
     if(!file) return;
-    row.classList.remove('done', 'failed');
-    status.textContent = 'Uploading…';
-    input.disabled = true;
+    err.hidden = true;
+    box.classList.remove('is-error');
+    box.classList.add('is-busy');
+    label.querySelector('.uploader-copy').innerHTML = '<strong>Uploading…</strong><span class="uploader-hint">' + file.name + '</span>';
     try{
       var doc = await uploadDocument(kind, file);
       session.uploads = session.uploads || {};
       session.uploads[kind] = doc;
-      row.classList.add('done');
-      status.textContent = '✓ Uploaded · ' + humanSize(doc.size_bytes);
+      showDone(doc, file.type.indexOf('image/') === 0 ? URL.createObjectURL(file) : null);
       if(onDone) onDone(doc);
-    } catch(err){
-      row.classList.add('failed');
-      status.textContent = err.message;
+    } catch(e){
+      box.classList.add('is-error');
+      err.textContent = e.message;
+      err.hidden = false;
       input.value = '';
     } finally {
-      input.disabled = false;
+      box.classList.remove('is-busy');
+      label.querySelector('.uploader-copy').innerHTML =
+        '<strong>Choose a file</strong> or drag it here<span class="uploader-hint">' + acceptLabel(accept) + ' · up to 4 MB</span>';
     }
+  }
+
+  input.addEventListener('change', function(){ handleFile(input.files && input.files[0]); });
+
+  ['dragenter', 'dragover'].forEach(function(evt){
+    label.addEventListener(evt, function(e){ e.preventDefault(); box.classList.add('is-over'); });
+  });
+  ['dragleave', 'drop'].forEach(function(evt){
+    label.addEventListener(evt, function(e){ e.preventDefault(); box.classList.remove('is-over'); });
+  });
+  label.addEventListener('drop', function(e){
+    handleFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
   });
 
-  row.appendChild(input);
-  row.appendChild(status);
-  return row;
+  box.appendChild(input);
+  box.appendChild(label);
+  box.appendChild(done);
+  box.appendChild(err);
+  return box;
 }
 
 function computeForm1a(service, citizen){
@@ -217,6 +274,14 @@ function renderIntakeScreen(){
   if(service.requires_slot){
     document.getElementById('intake-slot-note').textContent =
       'Pick an available date for your RTO visit' + (service.slot_purpose ? ' (' + service.slot_purpose + ')' : '') + '.';
+  }
+
+  var prereq = document.getElementById('intake-prerequisite');
+  if(service.prerequisite_note){
+    prereq.innerHTML = '<strong>Before you start:</strong> ' + service.prerequisite_note;
+    prereq.hidden = false;
+  } else {
+    prereq.hidden = true;
   }
 
   // Show why this RTO was chosen — jurisdiction follows the eKYC address, so

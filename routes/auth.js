@@ -12,8 +12,8 @@ const DEMO_EKYC = {
   name: 'Ramesh Kumar',
   dob: '1978-04-12',
   state: 'Telangana',
-  address: 'Plot 42, KPHB Colony, Kukatpally, Hyderabad',
-  pincode: '500072',
+  address: 'Plot 12, Habsiguda, Hyderabad',
+  pincode: '500076',
   dlNumber: 'TS09 2023 0004821',
 };
 
@@ -50,14 +50,14 @@ router.post('/verify-otp', asyncHandler(async (req, res) => {
       ]
     );
     citizen = inserted.rows[0];
-  } else if (!citizen.pincode) {
-    // Backfill accounts created before the address/pincode columns existed so
-    // their RTO is derived the same way as new ones.
+  } else if (citizen.pincode !== DEMO_EKYC.pincode) {
+    // eKYC is the address of record, so re-sync on login and re-derive the
+    // jurisdiction from it. This also repairs accounts created before the
+    // address columns existed, or whose pincode maps somewhere new.
     const jurisdiction = await resolveByPincode(DEMO_EKYC.pincode);
     const updated = await pool.query(
-      `UPDATE citizens SET address = $1, pincode = $2, rto = COALESCE(rto, $3)
-       WHERE id = $4 RETURNING *`,
-      [DEMO_EKYC.address, DEMO_EKYC.pincode, jurisdiction ? jurisdiction.name : null, citizen.id]
+      `UPDATE citizens SET address = $1, pincode = $2, rto = $3 WHERE id = $4 RETURNING *`,
+      [DEMO_EKYC.address, DEMO_EKYC.pincode, jurisdiction ? jurisdiction.name : citizen.rto, citizen.id]
     );
     citizen = updated.rows[0];
   }

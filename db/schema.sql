@@ -16,6 +16,9 @@ ALTER TABLE citizens ADD COLUMN IF NOT EXISTS vehicle_classes TEXT NOT NULL DEFA
 -- These were hardcoded to the renewal case in the UI.
 ALTER TABLE services ADD COLUMN IF NOT EXISTS slot_purpose TEXT;
 ALTER TABLE services ADD COLUMN IF NOT EXISTS carry_items TEXT;
+-- A rule the citizen must already satisfy before applying at all, as opposed to
+-- a document they bring. Surfaced up front rather than discovered at the RTO.
+ALTER TABLE services ADD COLUMN IF NOT EXISTS prerequisite_note TEXT;
 
 -- Address of record comes from Aadhaar eKYC and is what decides which RTO has
 -- jurisdiction — see the rto_pincodes note below.

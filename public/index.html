@@ -136,9 +136,9 @@
           <div class="svc-ico green"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="9" rx="1.8"/><path d="M7 7V4.5A1.5 1.5 0 0 1 8.5 3H18a1.5 1.5 0 0 1 1.5 1.5V13a1.5 1.5 0 0 1-1.5 1.5H16.5"/></svg></div><div class="t">Duplicate licence</div>
           <div class="d">Reissue a lost, stolen or damaged DL.</div>
         </button>
-        <button class="svc-card" style="--i:3" data-action="start-intake" data-service="address">
-          <div class="svc-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg></div><div class="t">Change of address</div>
-          <div class="d">Update the address on your licence.</div>
+        <button class="svc-card" style="--i:3" data-action="start-intake" data-service="dl">
+          <div class="svc-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6"/><path d="M4.6 16.5 9.4 13.6"/><path d="M19.4 16.5 14.6 13.6"/></svg></div><div class="t">Apply for a driving licence</div>
+          <div class="d">Take your driving test and get a permanent DL.</div>
         </button>
       </div>
     </aside>
@@ -258,8 +258,8 @@
               <button class="svc-card" data-action="start-intake" data-service="duplicate">
                 <div class="svc-ico green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="12" height="9" rx="1.8"/><path d="M7 7V4.5A1.5 1.5 0 0 1 8.5 3H18a1.5 1.5 0 0 1 1.5 1.5V13a1.5 1.5 0 0 1-1.5 1.5H16.5"/></svg></div><div class="t">Duplicate licence</div>
               </button>
-              <button class="svc-card" data-action="start-intake" data-service="address">
-                <div class="svc-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11 12 4l8 7"/><path d="M6 10v9h5v-5h2v5h5v-9"/></svg></div><div class="t">Change of address</div>
+              <button class="svc-card" data-action="start-intake" data-service="dl">
+                <div class="svc-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6"/><path d="M4.6 16.5 9.4 13.6"/><path d="M19.4 16.5 14.6 13.6"/></svg></div><div class="t">Apply for a driving licence</div>
               </button>
             </div>
           </div>
@@ -390,6 +390,7 @@
         <div class="cell auto"><span class="k">Aadhaar KYC</span><span class="v">Verified</span></div>
       </div>
       <p class="hint">Fetched automatically from DigiLocker &amp; Aadhaar — nothing to type here.</p>
+      <div class="banner escalate" id="intake-prerequisite" hidden style="margin-top:0;"></div>
       <div class="banner note" id="intake-rto-basis" hidden style="margin-top:0;"></div>
       <button class="btn primary" data-action="intake-next">Confirm &amp; continue</button>
     </div>
