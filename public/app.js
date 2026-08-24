@@ -416,6 +416,8 @@ var voicePC = null;
 var voiceStream = null;
 var voiceDC = null;
 var voiceCaptionBuffer = '';
+var wakeRecognition = null;
+var wakeWordArmed = false;
 
 var VOICE_INNER_ORDER = ['details', 'documents', 'slot'];
 
@@ -444,6 +446,76 @@ function setVoiceCaption(text){
 
 function setVoiceStatus(text){
   document.getElementById('voice-status-text').textContent = text;
+}
+
+function stopWakeWordListener(){
+  wakeWordArmed = false;
+  if(wakeRecognition){
+    wakeRecognition.onend = null;
+    try{ wakeRecognition.stop(); } catch(e){}
+    wakeRecognition = null;
+  }
+}
+
+function enableVoiceWakeWord(){
+  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var btn = document.getElementById('voice-toggle-btn');
+  if(!Recognition){
+    setVoiceCaption('Wake-word activation needs a current Chrome or Edge browser.');
+    setVoiceStatus('Voice activation unavailable');
+    return;
+  }
+
+  stopWakeWordListener();
+  wakeWordArmed = true;
+  wakeRecognition = new Recognition();
+  wakeRecognition.continuous = true;
+  wakeRecognition.interimResults = true;
+  wakeRecognition.lang = 'en-IN';
+
+  wakeRecognition.onstart = function(){
+    setVoiceCaption('Listening for “Hey Vaaha”…');
+    setVoiceStatus('Say “Hey Vaaha” to start');
+    btn.hidden = true;
+  };
+  wakeRecognition.onresult = function(event){
+    var latest = event.results[event.results.length - 1];
+    var heard = latest && latest[0] ? latest[0].transcript.trim() : '';
+    if(!heard){ return; }
+    setVoiceUserCaption(heard);
+    if(/(?:^|\b)hey\s+(?:vaaha|vaha)(?:\b|$)/i.test(heard)){
+      wakeWordArmed = false;
+      setVoiceCaption('Wake word heard. Connecting…');
+      setVoiceStatus('Connecting to Setu');
+      try{ wakeRecognition.stop(); } catch(e){}
+      wakeRecognition = null;
+      setTimeout(function(){ startVoiceRenewal(); }, 120);
+    }
+  };
+  wakeRecognition.onerror = function(event){
+    if(event.error === 'aborted' || event.error === 'no-speech'){ return; }
+    wakeWordArmed = false;
+    wakeRecognition = null;
+    setVoiceCaption('Microphone access is needed to listen for “Hey Vaaha”.');
+    setVoiceStatus('Microphone unavailable');
+    btn.hidden = false;
+  };
+  wakeRecognition.onend = function(){
+    if(wakeWordArmed && !voicePC){
+      setTimeout(function(){
+        if(wakeWordArmed && wakeRecognition){
+          try{ wakeRecognition.start(); } catch(e){}
+        }
+      }, 150);
+    }
+  };
+  try{ wakeRecognition.start(); }
+  catch(err){
+    wakeWordArmed = false;
+    wakeRecognition = null;
+    setVoiceCaption('Microphone access is needed to listen for “Hey Vaaha”.');
+    setVoiceStatus('Microphone unavailable');
+  }
 }
 
 function startVoiceCaptionReveal(){
@@ -584,9 +656,10 @@ function renderVoiceDetail(phase){
 }
 
 function resetVoiceScreen(){
+  stopWakeWordListener();
   session.selectedSlot = null;
   session.paymentDone = false;
-  setVoiceCaption('Tap "Start conversation" and allow microphone access to begin.');
+  setVoiceCaption('Enable your microphone, then say “Hey Vaaha” to begin.');
   setVoiceUserCaption('');
   setVoiceStatus('Setu is ready');
   document.getElementById('voice-mic-dot').classList.remove('live');
@@ -617,6 +690,7 @@ function revealVoiceIntake(){
 }
 
 function stopVoiceConnection(){
+  stopWakeWordListener();
   sendVoiceEvent({ type: 'response.cancel' });
   clearTimeout(voiceResponseTimer);
   if(voiceCaptionRevealTimer){ clearInterval(voiceCaptionRevealTimer); voiceCaptionRevealTimer = null; }
@@ -757,6 +831,7 @@ function handleVoiceEvent(evt){
 
 async function startVoiceRenewal(){
   var btn = document.getElementById('voice-toggle-btn');
+  stopWakeWordListener();
   btn.disabled = true;
   setVoiceCaption('Connecting…');
   setVoiceStatus('Connecting to Setu');
@@ -839,6 +914,7 @@ async function startVoiceRenewal(){
     console.error('[voice] startVoiceRenewal failed:', err);
     setVoiceCaption(err.message || 'Could not start the voice assistant.');
     setVoiceStatus('Could not connect');
+    btn.hidden = false;
     btn.disabled = false;
     stopVoiceConnection();
   }
@@ -885,7 +961,7 @@ async function handleAction(action, el){
       resetVoiceScreen();
       showScreen('screen-voice-renew');
     }
-    else if(action === 'voice-start'){ await startVoiceRenewal(); }
+    else if(action === 'voice-enable'){ enableVoiceWakeWord(); }
     else if(action === 'voice-end'){ endVoiceRenewal(); }
     else if(action === 'goto-pay'){
       if(session.service.requires_slot && !session.selectedSlot){

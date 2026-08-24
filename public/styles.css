@@ -225,16 +225,18 @@
   .intake-nav .btn{width:auto;}
 
   .voice-wrap{max-width:1040px;margin:0 auto;padding:26px 20px 48px;}
-  .voice-split{display:grid;grid-template-columns:1fr 1.3fr;gap:28px;align-items:start;margin-top:8px;transition:grid-template-columns .6s cubic-bezier(.22,1,.36,1);}
+  .voice-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:28px;align-items:start;margin-top:8px;}
   .voice-split.pre-start{grid-template-columns:1fr;}
-  @media(max-width:860px){.voice-split{grid-template-columns:1fr;}}
+  @media(max-width:860px){.voice-split{grid-template-columns:1fr;}.voice-split.pre-start .voice-caption-panel{max-width:640px;}}
   .voice-progress{display:flex;flex-direction:column;gap:12px;}
   .voice-progress.voice-reveal{animation:voice-reveal-in .55s cubic-bezier(.22,1,.36,1) both;}
   @keyframes voice-reveal-in{from{opacity:0;transform:translateX(-22px);}to{opacity:1;transform:none;}}
   @media(prefers-reduced-motion: reduce){.voice-progress.voice-reveal{animation:none;}}
   .voice-detail-panel{margin-bottom:0;}
   .voice-caption-panel{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:24px 26px;height:320px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:14px;min-width:0;transition:max-width .6s cubic-bezier(.22,1,.36,1),margin .6s cubic-bezier(.22,1,.36,1);}
-  .voice-split.pre-start .voice-caption-panel{max-width:640px;margin:0 auto;}
+  /* Match the final right-hand column before progress appears, avoiding a
+     distracting width change while the voice connection is established. */
+  .voice-split.pre-start .voice-caption-panel{max-width:calc((100% - 28px) * .565217);margin:0 auto;}
   .voice-status{display:flex;align-items:center;justify-content:center;gap:9px;min-height:20px;color:var(--ink-soft);font-size:12px;font-weight:700;letter-spacing:.02em;text-align:center;}
   .voice-mic-dot{width:12px;height:12px;border-radius:50%;background:var(--rule);flex:0 0 auto;}
   .voice-mic-dot.live{background:var(--green);box-shadow:0 0 0 6px var(--green-soft);animation:mic-pulse 1.6s ease-in-out infinite;}
