@@ -12,27 +12,39 @@ function makeReferenceCode() {
 // page, and the browser cannot detect that cross-origin. So probe the Embed
 // API once here and withhold embedUrl when it is unavailable, letting the
 // client fall back to the keyless directions link instead.
+// Keys are normally locked to HTTP referrers, so the probe has to send the
+// same Referer the browser will, or it gets rejected for a request the real
+// iframe would have completed. Cached per origin (dev and prod differ).
 const EMBED_PROBE_TTL_MS = 5 * 60 * 1000;
-let embedProbe = { checkedAt: 0, ok: false };
+const embedProbes = new Map();
 
-async function embedApiAvailable(sampleUrl) {
-  if (Date.now() - embedProbe.checkedAt < EMBED_PROBE_TTL_MS) return embedProbe.ok;
+async function embedApiAvailable(sampleUrl, origin) {
+  const cached = embedProbes.get(origin);
+  if (cached && Date.now() - cached.checkedAt < EMBED_PROBE_TTL_MS) return cached.ok;
   let ok = false;
   try {
-    const probe = await fetch(sampleUrl, { method: 'GET' });
+    const probe = await fetch(sampleUrl, { headers: { Referer: origin + '/' } });
     ok = probe.ok;
-    if (!ok) console.warn(`[maps] Embed API unavailable (HTTP ${probe.status}) — falling back to directions link.`);
+    if (!ok) {
+      const body = await probe.text();
+      const reason = /not activated/i.test(body)
+        ? 'Maps Embed API is not enabled on this key\'s Cloud project'
+        : /not authorized/i.test(body)
+          ? `referer ${origin}/ is not in the key's allowed HTTP referrers`
+          : `HTTP ${probe.status}`;
+      console.warn(`[maps] Embed unavailable — ${reason}. Falling back to directions link.`);
+    }
   } catch (err) {
     console.warn('[maps] Embed API probe failed:', err.message);
   }
-  embedProbe = { checkedAt: Date.now(), ok };
+  embedProbes.set(origin, { checkedAt: Date.now(), ok });
   return ok;
 }
 
 // The Maps key is unavoidably public (it ships inside the iframe src), so it
 // is protected by HTTP-referrer restrictions in Cloud Console rather than by
 // being hidden. mapsLink needs no key and always works.
-async function buildRtoPayload(row) {
+async function buildRtoPayload(row, origin) {
   if (!row.rto_map_query) return null;
   const query = encodeURIComponent(row.rto_map_query);
   const key = process.env.GOOGLE_MAPS_STATIC_KEY;
@@ -44,7 +56,7 @@ async function buildRtoPayload(row) {
     address: row.rto_address,
     hours: row.rto_hours,
     mapsLink: `https://www.google.com/maps/search/?api=1&query=${query}`,
-    embedUrl: embedUrl && (await embedApiAvailable(embedUrl)) ? embedUrl : null,
+    embedUrl: embedUrl && (await embedApiAvailable(embedUrl, origin)) ? embedUrl : null,
   };
 }
 
@@ -121,7 +133,8 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const application = appResult.rows[0];
   if (!application) return res.status(404).json({ error: 'Not found' });
 
-  const rto = await buildRtoPayload(application);
+  const origin = req.get('origin') || `${req.protocol}://${req.get('host')}`;
+  const rto = await buildRtoPayload(application, origin);
 
   const timeline = await pool.query(
     'SELECT * FROM timeline_events WHERE application_id = $1 ORDER BY occurred_at DESC',
