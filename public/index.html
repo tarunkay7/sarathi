@@ -491,6 +491,25 @@
     <h1>Application Status</h1>
     <p class="lead">Tracked automatically under your account — no application number to re-enter.</p>
 
+    <header class="receipt-print-only receipt-print-header">
+      <div>
+        <div class="receipt-print-kicker">Sarathi Parivahan Sewa</div>
+        <h1>Payment Receipt &amp; Appointment Confirmation</h1>
+        <p>Driving licence service acknowledgement</p>
+      </div>
+      <div class="receipt-print-mark">S</div>
+    </header>
+
+    <div class="panel confirmation-panel" id="track-confirmation-panel" hidden>
+      <div class="panel-head"><span class="panel-head-main">Payment successful — application confirmed</span></div>
+      <div class="panel-body">
+        <ul class="checklist confirmation-list">
+          <li><span class="tick">✓</span><span><strong>Email sent successfully</strong><br><span class="hint">Your receipt and appointment details were sent to the email address on file.</span></span></li>
+          <li><span class="tick">✓</span><span><strong>Mobile confirmation sent successfully</strong><br><span class="hint">An SMS was sent to <span id="confirmation-mobile">your registered mobile number</span>.</span></span></li>
+        </ul>
+      </div>
+    </div>
+
     <div class="panel">
       <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h9l7 7-9 9-7-7Z"/><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none"/></svg>Reference</span> <span class="sub" id="track-id">TS-DL-2026-4821</span></div>
       <div class="panel-body">
@@ -541,13 +560,19 @@
       <div class="panel-body">
         <div class="banner note" style="margin-top:0;">A visit is required only for photo &amp; biometric capture.</div>
         <div class="rec-body" style="padding:4px 0;">
-          <div class="kv"><span class="k">Centre</span><span>RTO Kukatpally, Hyderabad</span></div>
-          <div class="kv"><span class="k">Date &amp; time</span><span>Tue 02 Sep 2026, 10:00 AM</span></div>
-          <div class="kv"><span class="k">Carry</span><span>Slip, Form 1A, licence</span></div>
+          <div class="kv"><span class="k">Location</span><strong id="appointment-location">—</strong></div>
+          <div class="kv"><span class="k">Time slot</span><strong id="appointment-datetime">—</strong></div>
+          <div class="kv"><span class="k">Things to carry</span><strong id="appointment-carry">—</strong></div>
         </div>
         <button class="btn ghost small" data-action="add-calendar" style="margin-top:8px;">Add to calendar</button>
       </div>
     </div>
+
+    <footer class="receipt-print-only receipt-print-footer">
+      <strong>Keep this acknowledgement for your records and carry it to your appointment.</strong>
+      <span>This computer-generated receipt does not require a signature.</span>
+      <span>Sarathi Parivahan Sewa prototype</span>
+    </footer>
 
     <div class="demo">
       <span class="lbl">Prototype demo</span>
@@ -570,4 +595,3 @@
 <script src="app.js"></script>
 </body>
 </html>
-

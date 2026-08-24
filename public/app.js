@@ -116,7 +116,7 @@ function renderIntakeScreen(){
   form1a.className = 'extra';
   form1a.id = 'form1a-line';
   form1a.hidden = true;
-  form1a.innerHTML = '<span class="tick">✓</span> Medical certificate (Form 1A) — <strong id="form1a-reason">required</strong>';
+  form1a.innerHTML = '<span class="tick">✓</span><span>Medical certificate (Form 1A) — <strong id="form1a-reason">required</strong></span><a class="form-link" href="/forms/FORM-1A.pdf" target="_blank" rel="noopener">Open Form 1A</a>';
   list.appendChild(form1a);
 
   document.getElementById('intake-fee-label').textContent = service.title + ' (' + service.form_number + ')';
@@ -266,6 +266,10 @@ async function runPayment(delay){
     });
     status.innerHTML = '<div class="stamp">PAYMENT<br>CONFIRMED</div>' +
       '<p class="rec-id" style="text-align:center;">Reference: ' + session.referenceCode + '</p>' +
+      '<ul class="checklist payment-notifications">' +
+        '<li><span class="tick">✓</span><span><strong>Email sent successfully</strong><br><span class="hint">Receipt and appointment details sent to your email address on file.</span></span></li>' +
+        '<li><span class="tick">✓</span><span><strong>Mobile confirmation sent successfully</strong><br><span class="hint">SMS sent to ' + maskMobile(session.citizen.mobile_number) + '.</span></span></li>' +
+      '</ul>' +
       '<button class="btn primary" data-action="goto-track">View application status</button>';
   } catch(err){
     status.innerHTML = '<p class="error-text">' + err.message + '</p>';
@@ -312,6 +316,8 @@ function renderTrackScreen(){
   document.getElementById('track-appointment-panel').hidden = !service.requires_slot;
 
   var payEvent = session.timeline.find(function(evt){ return evt.label.indexOf('Payment confirmed') === 0; });
+  document.getElementById('track-confirmation-panel').hidden = !payEvent;
+  document.getElementById('confirmation-mobile').textContent = maskMobile(session.citizen.mobile_number);
   document.getElementById('receipt-name').textContent = session.citizen.name;
   document.getElementById('receipt-service').textContent = service.title;
   document.getElementById('receipt-ref').textContent = application.reference_code;
@@ -319,6 +325,14 @@ function renderTrackScreen(){
   document.getElementById('receipt-method').textContent = session.lastPaymentMethod || '—';
   document.getElementById('receipt-rto').textContent = session.citizen.state + ' · ' + session.citizen.rto;
   document.getElementById('receipt-datetime').textContent = payEvent ? formatDateTime(payEvent.occurred_at) : '—';
+
+  if(service.requires_slot){
+    var form1a = computeForm1a(service, session.citizen);
+    var appointment = session.selectedSlot || { date: 'Tue 02 Sep 2026', time: '10:00 AM' };
+    document.getElementById('appointment-location').textContent = 'RTO ' + session.citizen.rto + ', ' + session.citizen.state;
+    document.getElementById('appointment-datetime').textContent = appointment.date + ' · ' + appointment.time;
+    document.getElementById('appointment-carry').textContent = 'Acknowledgement slip, existing driving licence' + (form1a.required ? ', and completed Form 1A medical certificate' : '');
+  }
 }
 
 async function openTrack(){
@@ -483,7 +497,7 @@ function renderVoiceDetail(phase){
       return { icon: '✓', label: 'Document ready', value: item.label, sub: item.badge, state: 'confirmed' };
     });
     if(form1a.required){
-      rows.push({ icon: '✓', label: 'Medical certificate needed', value: 'Form 1A', sub: form1a.reason, state: 'flag' });
+      rows.push({ icon: '✓', label: 'Medical certificate needed', value: 'Form 1A <a class="form-link" href="/forms/FORM-1A.pdf" target="_blank" rel="noopener">Open form</a>', sub: form1a.reason, state: 'flag' });
     }
     el.innerHTML = '<div class="vcard-list">' + rows.map(function(r, i){
       return vcard({ icon: r.icon, label: r.label, value: r.value, sub: r.sub, state: r.state, delay: i * 0.07 });
