@@ -419,18 +419,61 @@ var voiceCaptionBuffer = '';
 
 var VOICE_INNER_ORDER = ['details', 'documents', 'slot'];
 
-var voiceCaptionRAF = null;
+// Caption text streams in over the data channel well ahead of the audio it
+// describes (text deltas arrive as JSON; audio arrives as a jittered RTP
+// track), so we pace the reveal to roughly speaking speed instead of
+// dumping the whole buffer the instant it lands.
+var VOICE_CAPTION_CPS = 15;
+var voiceCaptionRevealed = '';
+var voiceCaptionRevealTimer = null;
+
+// Response state machine: guards against two responses (and their audio)
+// overlapping, and lets us insert a natural breath before the assistant
+// starts its next turn instead of firing back-to-back.
+var voiceResponseActive = false;
+var voiceResponseQueued = false;
+var voiceResponseTimer = null;
 
 function setVoiceCaption(text){
   document.getElementById('voice-caption').textContent = text;
 }
 
-function scheduleVoiceCaptionUpdate(){
-  if(voiceCaptionRAF) return;
-  voiceCaptionRAF = requestAnimationFrame(function(){
-    voiceCaptionRAF = null;
-    setVoiceCaption(voiceCaptionBuffer);
-  });
+function startVoiceCaptionReveal(){
+  if(voiceCaptionRevealTimer) return;
+  voiceCaptionRevealTimer = setInterval(function(){
+    if(voiceCaptionRevealed.length < voiceCaptionBuffer.length){
+      var lag = voiceCaptionBuffer.length - voiceCaptionRevealed.length;
+      var step = lag > 50 ? Math.ceil(lag / 8) : 1;
+      voiceCaptionRevealed = voiceCaptionBuffer.slice(0, voiceCaptionRevealed.length + step);
+      setVoiceCaption(voiceCaptionRevealed);
+    } else if(!voiceResponseActive){
+      clearInterval(voiceCaptionRevealTimer);
+      voiceCaptionRevealTimer = null;
+    }
+  }, 1000 / VOICE_CAPTION_CPS);
+}
+
+function sendVoiceEvent(payload){
+  if(voiceDC && voiceDC.readyState === 'open'){ voiceDC.send(JSON.stringify(payload)); }
+}
+
+// Waits for the caption to finish revealing (a proxy for the audio having
+// finished playing) plus a short fixed pause, then starts the next turn.
+// If a turn is already in flight, defers until it reports done.
+function requestVoiceResponse(minDelayMs){
+  clearTimeout(voiceResponseTimer);
+  if(voiceResponseActive){
+    voiceResponseQueued = true;
+    return;
+  }
+  var wait = function(){
+    if(voiceCaptionRevealed.length < voiceCaptionBuffer.length){
+      voiceResponseTimer = setTimeout(wait, 80);
+      return;
+    }
+    voiceResponseTimer = setTimeout(function(){ sendVoiceEvent({ type: 'response.create' }); }, minDelayMs || 0);
+  };
+  wait();
 }
 
 function setVoiceUserCaption(text){
@@ -545,6 +588,11 @@ function resetVoiceScreen(){
   input.disabled = true;
   input.value = '';
   voiceCaptionBuffer = '';
+  voiceCaptionRevealed = '';
+  if(voiceCaptionRevealTimer){ clearInterval(voiceCaptionRevealTimer); voiceCaptionRevealTimer = null; }
+  voiceResponseActive = false;
+  voiceResponseQueued = false;
+  clearTimeout(voiceResponseTimer);
   document.getElementById('voice-detail').innerHTML = '<p class="hint" style="margin:0;">Details will appear here once you start.</p>';
   document.getElementById('voice-split').classList.add('pre-start');
   var progressPanel = document.getElementById('voice-progress-panel');
@@ -564,6 +612,13 @@ function revealVoiceIntake(){
 }
 
 function stopVoiceConnection(){
+  sendVoiceEvent({ type: 'response.cancel' });
+  clearTimeout(voiceResponseTimer);
+  if(voiceCaptionRevealTimer){ clearInterval(voiceCaptionRevealTimer); voiceCaptionRevealTimer = null; }
+  voiceResponseActive = false;
+  voiceResponseQueued = false;
+  voiceCaptionBuffer = '';
+  voiceCaptionRevealed = '';
   if(voicePC){ try{ voicePC.close(); } catch(e){} voicePC = null; }
   if(voiceStream){ voiceStream.getTracks().forEach(function(t){ t.stop(); }); voiceStream = null; }
   voiceDC = null;
@@ -573,6 +628,18 @@ function stopVoiceConnection(){
 function endVoiceRenewal(){
   stopVoiceConnection();
   showScreen('screen-dashboard');
+}
+
+// Assistant-initiated hangup (end_call tool): if the renewal actually
+// finished, land the citizen on their application status instead of just
+// the dashboard.
+function endVoiceCallFromAssistant(){
+  stopVoiceConnection();
+  if(session.applicationId && session.referenceCode){
+    openTrack().catch(function(){ showScreen('screen-dashboard'); });
+  } else {
+    showScreen('screen-dashboard');
+  }
 }
 
 async function handleVoiceToolCall(name, args, callId){
@@ -626,20 +693,32 @@ async function handleVoiceToolCall(name, args, callId){
         result = { ok: true, referenceCode: session.referenceCode };
       }
     }
+    else if(name === 'end_call'){
+      result = { ok: true };
+      document.getElementById('voice-text-input').disabled = true;
+    }
     else {
       result = { error: 'Unknown tool: ' + name };
     }
   } catch(err){
     result = { error: err.message };
   }
-  if(voiceDC && voiceDC.readyState === 'open'){
-    voiceDC.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: callId, output: JSON.stringify(result) } }));
-    voiceDC.send(JSON.stringify({ type: 'response.create' }));
+  sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: callId, output: JSON.stringify(result) } });
+  if(name === 'end_call'){
+    // Let the goodbye that was just spoken finish playing before hanging up.
+    setTimeout(endVoiceCallFromAssistant, 2600);
+    return;
   }
+  requestVoiceResponse(400);
 }
 
 function handleVoiceEvent(evt){
-  if(evt.type === 'response.output_audio_transcript.delta'){
+  if(evt.type === 'response.created'){
+    voiceResponseActive = true;
+    voiceCaptionBuffer = '';
+    voiceCaptionRevealed = '';
+  }
+  else if(evt.type === 'response.output_audio_transcript.delta'){
     if(voiceCaptionBuffer === ''){
       var caption = document.getElementById('voice-caption');
       caption.classList.remove('voice-caption-fade');
@@ -647,18 +726,24 @@ function handleVoiceEvent(evt){
       caption.classList.add('voice-caption-fade');
     }
     voiceCaptionBuffer += evt.delta;
-    scheduleVoiceCaptionUpdate();
+    startVoiceCaptionReveal();
   }
   else if(evt.type === 'response.done'){
-    voiceCaptionBuffer = '';
+    voiceResponseActive = false;
     var output = (evt.response && evt.response.output) || [];
+    var hadToolCall = false;
     output.forEach(function(item){
       if(item.type === 'function_call'){
+        hadToolCall = true;
         var args = {};
         try{ args = JSON.parse(item.arguments || '{}'); } catch(e){}
         handleVoiceToolCall(item.name, args, item.call_id);
       }
     });
+    if(!hadToolCall && voiceResponseQueued){
+      voiceResponseQueued = false;
+      requestVoiceResponse(300);
+    }
   }
   else if(evt.type === 'conversation.item.input_audio_transcription.completed' && evt.transcript){
     setVoiceUserCaption(evt.transcript);
@@ -712,7 +797,7 @@ async function startVoiceRenewal(){
       document.getElementById('voice-mic-dot').classList.add('live');
       btn.hidden = true;
       document.getElementById('voice-text-input').disabled = false;
-      voiceDC.send(JSON.stringify({ type: 'response.create' }));
+      requestVoiceResponse(0);
     });
     voiceDC.addEventListener('message', function(e){
       try{ handleVoiceEvent(JSON.parse(e.data)); } catch(err){ console.error('[voice] event handling error:', err); }
@@ -860,8 +945,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var text = e.target.value.trim();
     if(!text || !voiceDC || voiceDC.readyState !== 'open') return;
     setVoiceUserCaption(text);
-    voiceDC.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: text }] } }));
-    voiceDC.send(JSON.stringify({ type: 'response.create' }));
+    sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: text }] } });
+    requestVoiceResponse(150);
     e.target.value = '';
   });
 
