@@ -59,7 +59,32 @@ const services = [
   },
 ];
 
+// Telangana RTO offices. map_query is a Google Maps search string (not a
+// verified postal address) so the embedded pin resolves to the real office
+// without hard-coding coordinates we have not confirmed.
+const rtos = [
+  { name: 'Kukatpally', state: 'Telangana', city: 'Hyderabad', map_query: 'RTA Office Kukatpally, Hyderabad, Telangana', hours: 'Mon–Sat, 10:30 AM – 5:00 PM' },
+  { name: 'Khairatabad', state: 'Telangana', city: 'Hyderabad', map_query: 'RTA Office Khairatabad, Hyderabad, Telangana', hours: 'Mon–Sat, 10:30 AM – 5:00 PM' },
+  { name: 'Uppal', state: 'Telangana', city: 'Hyderabad', map_query: 'RTA Office Uppal, Hyderabad, Telangana', hours: 'Mon–Sat, 10:30 AM – 5:00 PM' },
+  { name: 'Medchal', state: 'Telangana', city: 'Medchal', map_query: 'RTA Office Medchal, Telangana', hours: 'Mon–Sat, 10:30 AM – 5:00 PM' },
+  { name: 'Ibrahimpatnam', state: 'Telangana', city: 'Ibrahimpatnam', map_query: 'RTA Office Ibrahimpatnam, Ranga Reddy, Telangana', hours: 'Mon–Sat, 10:30 AM – 5:00 PM' },
+];
+
 async function main() {
+  for (const rto of rtos) {
+    await pool.query(
+      `INSERT INTO rtos (name, state, city, map_query, address, hours)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (name, state) DO UPDATE SET
+         city = EXCLUDED.city,
+         map_query = EXCLUDED.map_query,
+         address = EXCLUDED.address,
+         hours = EXCLUDED.hours`,
+      [rto.name, rto.state, rto.city, rto.map_query, rto.address || null, rto.hours || null]
+    );
+  }
+  console.log(`Seeded ${rtos.length} RTOs.`);
+
   for (const svc of services) {
     await pool.query(
       `INSERT INTO services (key, title, form_number, fee_cents, requires_slot, expected_days, checklist, eligibility)

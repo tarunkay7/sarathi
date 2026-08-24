@@ -281,6 +281,16 @@ function stageIndex(status){
   return { details:0, paid:0, under_review:1, approved:2, ready:3 }[status] || 0;
 }
 
+var APP_STATUS_META = {
+  details: { label: 'Details', chip: 'info' },
+  paid: { label: 'Paid', chip: 'info' },
+  under_review: { label: 'Under review', chip: 'warn' },
+  approved: { label: 'Approved', chip: 'ok' },
+  ready: { label: 'Ready', chip: 'ok' },
+};
+var REC_STAGE_LABELS = ['Submitted', 'Review', 'Approved', 'Ready'];
+var REC_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>';
+
 function renderTrackScreen(){
   var application = session.application;
   var service = session.service;
@@ -332,13 +342,43 @@ function renderTrackScreen(){
     document.getElementById('appointment-location').textContent = 'RTO ' + session.citizen.rto + ', ' + session.citizen.state;
     document.getElementById('appointment-datetime').textContent = appointment.date + ' · ' + appointment.time;
     document.getElementById('appointment-carry').textContent = 'Acknowledgement slip, existing driving licence' + (form1a.required ? ', and completed Form 1A medical certificate' : '');
+    renderRtoMap();
   }
+}
+
+function renderRtoMap(){
+  var wrap = document.getElementById('rto-map');
+  var rto = session.rto;
+  if(!rto){ wrap.hidden = true; return; }
+
+  var frame = document.getElementById('rto-map-frame');
+  if(rto.embedUrl){
+    var iframe = document.createElement('iframe');
+    iframe.src = rto.embedUrl;
+    iframe.loading = 'lazy';
+    iframe.referrerPolicy = 'no-referrer-when-downgrade';
+    iframe.allowFullscreen = true;
+    iframe.title = 'Map showing RTO ' + rto.name;
+    frame.innerHTML = '';
+    frame.appendChild(iframe);
+  } else {
+    // No key configured on the server — the directions link still works.
+    frame.innerHTML = '<div class="rto-map-fallback">Map preview unavailable.<br>Use “Get directions” to open this office in Google Maps.</div>';
+  }
+
+  document.getElementById('rto-map-name').textContent = 'RTO ' + rto.name + (rto.city ? ', ' + rto.city : '') + (rto.state ? ', ' + rto.state : '');
+  var hoursEl = document.getElementById('rto-map-hours');
+  hoursEl.textContent = rto.hours || '';
+  hoursEl.hidden = !rto.hours;
+  document.getElementById('rto-map-link').href = rto.mapsLink;
+  wrap.hidden = false;
 }
 
 async function openTrack(){
   var data = await api('/api/applications/' + session.applicationId);
   session.application = data.application;
   session.timeline = data.timeline;
+  session.rto = data.rto;
   if(!session.service || session.service.key !== data.application.service_key){
     session.service = {
       key: data.application.service_key,
@@ -360,6 +400,7 @@ async function escalateDemo(){
   var data = await api('/api/applications/' + session.applicationId);
   session.application = data.application;
   session.timeline = data.timeline;
+  session.rto = data.rto;
   renderTrackScreen();
   document.getElementById('escalation-banner').focus();
 }
@@ -390,12 +431,30 @@ async function openDashboard(){
   }
   document.getElementById('app-count').textContent = data.applications.length + ' in progress';
   container.innerHTML = data.applications.map(function(app){
-    var statusLabel = { details:'Details', paid:'Paid', under_review:'Under review', approved:'Approved', ready:'Ready' }[app.status] || app.status;
-    return '<div class="rec"><div class="rec-top"><span class="rec-id">' + app.reference_code + '</span>' +
-      '<span class="status-chip info">' + statusLabel + (app.escalated ? ' · escalated' : '') + '</span></div>' +
-      '<div class="rec-body"><div class="kv"><span class="k">Service</span><span>' + app.service_title + '</span></div>' +
-      '<div class="kv"><span class="k">Expected by</span><span>' + formatDate(app.expected_by) + '</span></div></div>' +
-      '<div class="rec-actions"><button class="btn ghost small" data-action="goto-track" data-app-id="' + app.id + '" data-reference="' + app.reference_code + '" data-service-key="' + app.service_key + '" data-service-title="' + app.service_title + '" data-fee-cents="' + app.fee_cents + '" data-requires-slot="' + app.requires_slot + '" data-expected-days="' + app.expected_days + '" data-form-number="' + app.form_number + '">View status</button></div></div>';
+    var meta = APP_STATUS_META[app.status] || { label: app.status, chip: 'info' };
+    var stageIdx = stageIndex(app.status);
+    var stepper = '<div class="stage-stepper rec-stepper">' + REC_STAGE_LABELS.map(function(label, i){
+      var cls = i < stageIdx ? 'done' : (i === stageIdx ? 'active' : '');
+      return '<div class="stage ' + cls + '"><span class="dot"></span>' + label + '</div>';
+    }).join('') + '</div>';
+    return '<div class="rec' + (app.escalated ? ' escalated' : '') + '">' +
+      '<div class="rec-top">' +
+        '<div class="rec-top-left">' +
+          '<span class="rec-ico">' + REC_ICON + '</span>' +
+          '<div><div class="rec-id">' + app.reference_code + '</div><div class="rec-service">' + app.service_title + ' · ' + app.form_number + '</div></div>' +
+        '</div>' +
+        '<span class="status-chip ' + meta.chip + '">' + meta.label + '</span>' +
+      '</div>' +
+      (app.escalated ? '<div class="rec-warn">⚠ Escalated to a supervisor — running past the expected date</div>' : '') +
+      stepper +
+      '<div class="rec-facts">' +
+        '<div class="rec-fact"><span class="k">Fee paid</span><span class="v">' + rupees(app.fee_cents) + '</span></div>' +
+        '<div class="rec-fact"><span class="k">Submitted</span><span class="v">' + formatDate(app.created_at) + '</span></div>' +
+        '<div class="rec-fact"><span class="k">Expected by</span><span class="v">' + formatDate(app.expected_by) + '</span></div>' +
+        '<div class="rec-fact"><span class="k">RTO visit</span><span class="v">' + (app.requires_slot ? 'Required' : 'Not required') + '</span></div>' +
+      '</div>' +
+      '<div class="rec-actions"><button class="btn ghost small" data-action="goto-track" data-app-id="' + app.id + '" data-reference="' + app.reference_code + '" data-service-key="' + app.service_key + '" data-service-title="' + app.service_title + '" data-fee-cents="' + app.fee_cents + '" data-requires-slot="' + app.requires_slot + '" data-expected-days="' + app.expected_days + '" data-form-number="' + app.form_number + '">View status →</button></div>' +
+    '</div>';
   }).join('');
 }
 

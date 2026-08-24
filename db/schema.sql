@@ -56,3 +56,17 @@ CREATE TABLE IF NOT EXISTS timeline_events (
   label TEXT NOT NULL,
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- map_query is the search string handed to Google Maps rather than a verified
+-- street address, so the pin resolves without us asserting coordinates we
+-- have not confirmed. address/hours stay nullable until they are.
+CREATE TABLE IF NOT EXISTS rtos (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  state TEXT NOT NULL,
+  city TEXT,
+  map_query TEXT NOT NULL,
+  address TEXT,
+  hours TEXT,
+  UNIQUE (name, state)
+);

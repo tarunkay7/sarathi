@@ -8,6 +8,46 @@ function makeReferenceCode() {
   return 'TS-DL-2026-' + Math.floor(1000 + Math.random() * 9000);
 }
 
+// A rejected embed URL still renders inside the iframe as Google's own error
+// page, and the browser cannot detect that cross-origin. So probe the Embed
+// API once here and withhold embedUrl when it is unavailable, letting the
+// client fall back to the keyless directions link instead.
+const EMBED_PROBE_TTL_MS = 5 * 60 * 1000;
+let embedProbe = { checkedAt: 0, ok: false };
+
+async function embedApiAvailable(sampleUrl) {
+  if (Date.now() - embedProbe.checkedAt < EMBED_PROBE_TTL_MS) return embedProbe.ok;
+  let ok = false;
+  try {
+    const probe = await fetch(sampleUrl, { method: 'GET' });
+    ok = probe.ok;
+    if (!ok) console.warn(`[maps] Embed API unavailable (HTTP ${probe.status}) — falling back to directions link.`);
+  } catch (err) {
+    console.warn('[maps] Embed API probe failed:', err.message);
+  }
+  embedProbe = { checkedAt: Date.now(), ok };
+  return ok;
+}
+
+// The Maps key is unavoidably public (it ships inside the iframe src), so it
+// is protected by HTTP-referrer restrictions in Cloud Console rather than by
+// being hidden. mapsLink needs no key and always works.
+async function buildRtoPayload(row) {
+  if (!row.rto_map_query) return null;
+  const query = encodeURIComponent(row.rto_map_query);
+  const key = process.env.GOOGLE_MAPS_STATIC_KEY;
+  const embedUrl = key ? `https://www.google.com/maps/embed/v1/place?key=${key}&q=${query}` : null;
+  return {
+    name: row.rto_name,
+    city: row.rto_city,
+    state: row.rto_state,
+    address: row.rto_address,
+    hours: row.rto_hours,
+    mapsLink: `https://www.google.com/maps/search/?api=1&query=${query}`,
+    embedUrl: embedUrl && (await embedApiAvailable(embedUrl)) ? embedUrl : null,
+  };
+}
+
 function requireInteger(value, res) {
   if (!/^\d+$/.test(String(value))) {
     res.status(400).json({ error: 'Invalid id' });
@@ -68,19 +108,26 @@ router.get('/:id', asyncHandler(async (req, res) => {
   if (id === null) return;
 
   const appResult = await pool.query(
-    `SELECT a.*, s.title AS service_title, s.fee_cents, s.checklist, s.eligibility
-     FROM applications a JOIN services s ON s.key = a.service_key
+    `SELECT a.*, s.title AS service_title, s.fee_cents, s.checklist, s.eligibility,
+            r.name AS rto_name, r.city AS rto_city, r.state AS rto_state,
+            r.map_query AS rto_map_query, r.address AS rto_address, r.hours AS rto_hours
+     FROM applications a
+     JOIN services s ON s.key = a.service_key
+     JOIN citizens c ON c.id = a.citizen_id
+     LEFT JOIN rtos r ON r.name = c.rto AND r.state = c.state
      WHERE a.id = $1`,
     [id]
   );
   const application = appResult.rows[0];
   if (!application) return res.status(404).json({ error: 'Not found' });
 
+  const rto = await buildRtoPayload(application);
+
   const timeline = await pool.query(
     'SELECT * FROM timeline_events WHERE application_id = $1 ORDER BY occurred_at DESC',
     [id]
   );
-  res.json({ application, timeline: timeline.rows });
+  res.json({ application, timeline: timeline.rows, rto });
 }));
 
 router.post('/:id/escalate', asyncHandler(async (req, res) => {
