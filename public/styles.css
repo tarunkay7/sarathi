@@ -69,6 +69,12 @@
 
   /* ---------- LAYOUT ---------- */
   .wrap{max-width:660px;margin:0 auto;padding:26px 20px 48px;}
+  /* The status screen lays its panels out 2-up, so it needs the same width as
+     the dashboard rather than the narrow single-column form width. */
+  main.wrap:has(#screen-track.active){max-width:1040px;}
+  .track-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start;}
+  .track-grid > .panel{margin-bottom:0;}
+  @media(max-width:860px){.track-grid{grid-template-columns:1fr;}}
   .crumb{font-size:12px;color:var(--ink-soft);margin-bottom:16px;}
   .crumb a{text-decoration:none;}
 
@@ -460,11 +466,17 @@
     #main{display:block !important;max-width:none !important;padding:0 !important;margin:0 !important;}
     #main > *:not(#screen-track){display:none !important;}
     #screen-track{display:flex !important;flex-direction:column;gap:5mm;min-height:297mm;padding:14mm;}
-    #screen-track > *{display:none !important;}
+    /* Receipt and appointment live inside .track-grid on screen, so the print
+       allowlist has to reach through it and drop back to single-column flow. */
+    #screen-track > *,
+    #screen-track .track-grid > *{display:none !important;}
     #screen-track > .receipt-print-only,
     #screen-track > #track-confirmation-panel:not([hidden]),
-    #screen-track > #receipt-panel,
-    #screen-track > #track-appointment-panel:not([hidden]){display:block !important;}
+    #screen-track > .track-grid,
+    #screen-track .track-grid > #receipt-panel,
+    #screen-track .track-grid > #track-appointment-panel:not([hidden]){display:block !important;}
+    #screen-track .track-grid{grid-template-columns:none !important;gap:0 !important;}
+    #screen-track .track-grid > .panel{margin-bottom:5mm !important;}
     .receipt-print-header{display:flex !important;align-items:flex-start;justify-content:space-between;padding:0 0 7mm;border-bottom:3px solid #22315c;}
     .receipt-print-header h1{font-family:Arial,sans-serif;font-size:20pt;line-height:1.15;margin:2mm 0 1mm;color:#22315c;}
     .receipt-print-header p{margin:0;color:#5b6473;font-size:9.5pt;}
