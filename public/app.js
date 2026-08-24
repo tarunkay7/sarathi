@@ -583,8 +583,14 @@ function renderVoiceProgress(phase){
 function vcard(opts){
   var state = opts.state || '';
   var delay = ((opts.delay || 0)).toFixed(2);
+  var iconHtml = '';
+  if(opts.icon === 'spinner'){
+    iconHtml = '<span class="vcard-icon vcard-icon-spinner"><span class="vcard-spinner"></span></span>';
+  } else if(opts.icon){
+    iconHtml = '<span class="vcard-icon">' + opts.icon + '</span>';
+  }
   return '<div class="vcard ' + state + '" style="animation-delay:' + delay + 's">' +
-    (opts.icon ? '<span class="vcard-icon">' + opts.icon + '</span>' : '') +
+    iconHtml +
     '<div class="vcard-body">' +
       '<span class="vcard-label">' + opts.label + '</span>' +
       '<span class="vcard-value">' + opts.value + '</span>' +
@@ -642,7 +648,9 @@ function renderVoiceDetail(phase){
       cards.push(vcard({ icon: '✓', label: 'RTO visit confirmed', value: session.selectedSlot.date + ' · ' + session.selectedSlot.time, state: 'confirmed', delay: 0.07 }));
     }
     if(session.paymentDone){
-      cards.push(vcard({ icon: '✓', label: 'Payment', value: 'Received', state: 'confirmed', delay: cards.length * 0.07 }));
+      cards.push(vcard({ icon: '✓', label: 'Payment', value: 'Received', sub: session.lastPaymentMethod ? ('via ' + session.lastPaymentMethod) : '', state: 'confirmed just-confirmed', delay: cards.length * 0.07 }));
+    } else if(session.paymentProcessing){
+      cards.push(vcard({ icon: 'spinner', label: 'Payment', value: 'Processing your ' + (session.lastPaymentMethod || '') + ' payment…', state: 'processing', delay: cards.length * 0.07 }));
     } else {
       cards.push(vcard({ label: 'Payment', value: 'Waiting for confirmation…', state: 'awaiting', delay: cards.length * 0.07 }));
     }
@@ -650,7 +658,7 @@ function renderVoiceDetail(phase){
   }
   else if(phase === 'track'){
     el.innerHTML = '<div class="vcard-list">' +
-      vcard({ icon: '✓', label: 'Application submitted', value: session.referenceCode || '—', state: 'confirmed', delay: 0 }) +
+      vcard({ icon: '✓', label: 'Application submitted', value: session.referenceCode || '—', state: 'confirmed just-confirmed', delay: 0 }) +
     '</div>';
   }
 }
@@ -659,6 +667,7 @@ function resetVoiceScreen(){
   stopWakeWordListener();
   session.selectedSlot = null;
   session.paymentDone = false;
+  session.paymentProcessing = false;
   setVoiceCaption('Enable your microphone, then say “Hey Vaaha” to begin.');
   setVoiceUserCaption('');
   setVoiceStatus('Setu is ready');
@@ -758,7 +767,11 @@ async function handleVoiceToolCall(name, args, callId){
       }
     }
     else if(name === 'make_payment'){
+      session.lastPaymentMethod = args.method;
+      session.paymentProcessing = true;
+      renderVoiceProgress('payment');
       var payment = await processPayment(args.method, 1200);
+      session.paymentProcessing = false;
       session.paymentDone = true;
       renderVoiceProgress('payment');
       result = { ok: true, status: payment.status };

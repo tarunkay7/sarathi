@@ -284,6 +284,13 @@
   .vcard.awaiting .vcard-icon{background:var(--indigo);color:#fff;}
   @keyframes vcard-pulse{0%,100%{box-shadow:0 0 0 3px var(--indigo-soft);}50%{box-shadow:0 0 0 6px var(--indigo-soft, rgba(63,61,181,.08));}}
   @media(prefers-reduced-motion: reduce){.vcard.awaiting{animation:none;}}
+  .vcard.processing{border-color:var(--indigo);background:var(--indigo-soft);}
+  .vcard-icon-spinner{background:transparent;}
+  .vcard-spinner{width:16px;height:16px;border:2.5px solid var(--indigo-soft);border-top-color:var(--indigo);border-radius:50%;animation:spin .8s linear infinite;}
+  @media(prefers-reduced-motion: reduce){.vcard-spinner{animation:none;}}
+  .vcard.just-confirmed{animation:vcard-in .5s cubic-bezier(.22,1,.36,1) both, vcard-pop .45s cubic-bezier(.34,1.56,.64,1) .5s both;}
+  @keyframes vcard-pop{0%{transform:scale(1);}55%{transform:scale(1.045);}100%{transform:scale(1);}}
+  @media(prefers-reduced-motion: reduce){.vcard.just-confirmed{animation:none;}}
   .stage-stepper{display:flex;justify-content:space-between;position:relative;margin:16px 0 8px;}
   .stage-stepper::before{content:"";position:absolute;top:7px;left:8%;right:8%;height:2px;background:var(--rule);}
   .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--ink-faint);flex:1;text-align:center;}
