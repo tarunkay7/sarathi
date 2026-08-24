@@ -121,6 +121,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
   const appResult = await pool.query(
     `SELECT a.*, s.title AS service_title, s.fee_cents, s.checklist, s.eligibility,
+            s.requires_slot, s.expected_days, s.form_number, s.slot_purpose, s.carry_items,
             r.name AS rto_name, r.city AS rto_city, r.state AS rto_state,
             r.map_query AS rto_map_query, r.address AS rto_address, r.hours AS rto_hours
      FROM applications a

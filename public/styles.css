@@ -75,17 +75,18 @@
   /* Reference and receipt stack in the left column; the tall appointment card
      owns the right one outright, so neither side waits on the other's height. */
   .track-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-    grid-template-areas:"reference appointment" "receipt appointment";gap:18px;align-items:start;}
+    grid-template-areas:"reference appointment" "receipt appointment" "documents appointment";gap:18px;align-items:start;}
   .track-grid > .panel{margin-bottom:0;}
   #track-reference-panel{grid-area:reference;}
   #track-appointment-panel{grid-area:appointment;}
   #receipt-panel{grid-area:receipt;}
+  #track-documents-panel{grid-area:documents;}
   /* Services with no RTO visit hide the appointment panel — collapse to one
      column rather than reserving an empty half. */
   .track-grid:has(#track-appointment-panel[hidden]){grid-template-columns:1fr;
-    grid-template-areas:"reference" "receipt";}
+    grid-template-areas:"reference" "receipt" "documents";}
   @media(max-width:860px){
-    .track-grid{grid-template-columns:1fr;grid-template-areas:"reference" "appointment" "receipt";}
+    .track-grid{grid-template-columns:1fr;grid-template-areas:"reference" "appointment" "receipt" "documents";}
   }
   .crumb{font-size:12px;color:var(--ink-soft);margin-bottom:16px;}
   .crumb a{text-decoration:none;}
@@ -347,6 +348,28 @@
   .rto-map-hours{font-size:12px;font-weight:600;color:var(--ink-faint);margin-top:2px;}
   .rto-map-foot .btn{width:auto;text-decoration:none;}
   @media print{.rto-map-frame{display:none;}}
+
+  .upload-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0 0 26px;padding:10px 12px;border:1px dashed var(--rule);border-radius:var(--radius-sm);background:var(--surface-sunk);}
+  .upload-row input[type=file]{font-family:var(--font-body);font-size:12.5px;font-weight:600;color:var(--ink-soft);max-width:100%;min-width:0;}
+  .upload-row input[type=file]::file-selector-button{font-family:var(--font-body);font-size:12.5px;font-weight:700;color:var(--indigo);background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:6px 12px;margin-right:10px;cursor:pointer;}
+  .upload-row.done{border-style:solid;border-color:var(--green);background:var(--green-soft);}
+  .upload-row.failed{border-style:solid;border-color:var(--red);background:var(--red-soft);}
+  /* Inside a voice card the row is already indented by the card body. */
+  .vcard .upload-row{margin:8px 0 0;background:rgba(255,255,255,.65);}
+  .upload-status{font-size:12.5px;font-weight:700;color:var(--ink-soft);}
+  .upload-row.done .upload-status{color:var(--green);}
+  .upload-row.failed .upload-status{color:var(--red);}
+
+  .doclist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+  .doclist li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid var(--rule-soft);border-radius:var(--radius-sm);background:var(--surface);flex-wrap:wrap;}
+  .doclist .d-name{font-size:13.5px;font-weight:700;color:var(--ink);}
+  .doclist .d-meta{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:2px;}
+  .doclist .btn{width:auto;text-decoration:none;}
+
+  .ack{display:flex;align-items:flex-start;gap:10px;margin-top:16px;padding:13px 16px;border:1px solid var(--rule);border-radius:var(--radius-sm);background:var(--surface-sunk);font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:border-color .15s ease,background-color .15s ease;}
+  .ack input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--indigo);cursor:pointer;}
+  .ack.ack-missing{border-color:var(--red);background:var(--red-soft);}
+  .ack[hidden]{display:none;}
 
   .banner{border-radius:var(--radius-sm);padding:13px 16px;font-size:13.5px;margin:14px 0;}
   .banner.info{background:var(--indigo-soft);color:var(--indigo-deep);border-left:3px solid var(--indigo);}

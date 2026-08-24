@@ -6,6 +6,8 @@ const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
 const paymentRoutes = require('./routes/payments');
 const realtimeRoutes = require('./routes/realtime');
+const rtoRoutes = require('./routes/rtos');
+const documentRoutes = require('./routes/documents');
 
 const app = express();
 app.use(express.json());
@@ -19,6 +21,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/realtime', realtimeRoutes);
+app.use('/api/rtos', rtoRoutes);
+app.use('/api/documents', documentRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -29,6 +33,15 @@ app.get('/', (req, res) => {
 app.use((err, req, res, next) => {
   console.error(err);
   if (res.headersSent) return next(err);
+  // Body-parser rejections carry a usable status; a rejected upload should say
+  // so rather than surfacing as a generic failure.
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'That file is too large. Please upload a file under 4 MB.' });
+  }
+  const status = err.status || err.statusCode;
+  if (status && status >= 400 && status < 500) {
+    return res.status(status).json({ error: 'That request could not be processed. Please check the file and try again.' });
+  }
   res.status(500).json({ error: 'Something went wrong. Please try again.' });
 });
 

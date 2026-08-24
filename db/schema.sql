@@ -11,6 +11,16 @@ CREATE TABLE IF NOT EXISTS citizens (
 );
 
 ALTER TABLE citizens ADD COLUMN IF NOT EXISTS vehicle_classes TEXT NOT NULL DEFAULT 'LMV, MCWG';
+-- What an RTO visit is for, and what to bring, differ per service: a renewal
+-- captures photo/biometrics, a new learner's licence is the computerised test.
+-- These were hardcoded to the renewal case in the UI.
+ALTER TABLE services ADD COLUMN IF NOT EXISTS slot_purpose TEXT;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS carry_items TEXT;
+
+-- Address of record comes from Aadhaar eKYC and is what decides which RTO has
+-- jurisdiction — see the rto_pincodes note below.
+ALTER TABLE citizens ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE citizens ADD COLUMN IF NOT EXISTS pincode VARCHAR(6);
 
 CREATE TABLE IF NOT EXISTS services (
   key TEXT PRIMARY KEY,
@@ -75,4 +85,32 @@ CREATE TABLE IF NOT EXISTS rtos (
   address TEXT,
   hours TEXT,
   UNIQUE (name, state)
+);
+
+-- Which RTO can process an application is set by where the applicant
+-- ordinarily resides or carries on business (Motor Vehicles Act 1988, s.8 for
+-- learner's licences) — NOT by device location, which would route a Hyderabad
+-- resident travelling in Delhi to an authority that must reject them. So the
+-- lookup is keyed on the eKYC address pincode; one pincode sits under exactly
+-- one jurisdiction, hence pincode as the primary key.
+CREATE TABLE IF NOT EXISTS rto_pincodes (
+  pincode VARCHAR(6) PRIMARY KEY,
+  rto_id INTEGER NOT NULL REFERENCES rtos(id) ON DELETE CASCADE
+);
+
+-- Content lives in the row rather than on disk: Render's free tier has an
+-- ephemeral filesystem, so uploads written there vanish on every redeploy.
+-- Files are small (a signature scan or a one-page Form 1A), so BYTEA is a fair
+-- trade for surviving restarts without adding object storage.
+CREATE TABLE IF NOT EXISTS documents (
+  id SERIAL PRIMARY KEY,
+  application_id INTEGER NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  filename TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  content BYTEA NOT NULL,
+  uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- One current file per kind per application; re-uploading replaces it.
+  UNIQUE (application_id, kind)
 );

@@ -58,6 +58,89 @@ function initDocCardTilt(){
   });
 }
 
+function humanSize(bytes){
+  return bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
+
+// Sent as a raw body rather than multipart — the api() helper JSON-encodes, so
+// this posts the File directly with its own content type.
+async function uploadDocument(kind, file){
+  var res = await fetch('/api/documents?applicationId=' + encodeURIComponent(session.applicationId) + '&kind=' + encodeURIComponent(kind), {
+    method: 'POST',
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    body: file
+  });
+  var data = {};
+  try { data = await res.json(); } catch(e) {}
+  if(!res.ok) throw new Error(data.error || 'Upload failed. Please try again.');
+  return data.document;
+}
+
+// Single source of truth for what this service actually needs uploaded, so the
+// manual form and the voice flow can never disagree about it.
+function requiredUploads(service, citizen){
+  var out = (service.checklist || []).filter(function(item){ return item.upload; }).map(function(item){
+    return { kind: item.upload, label: item.label, accept: 'image/png,image/jpeg' };
+  });
+  if(computeForm1a(service, citizen).required){
+    out.push({ kind: 'form_1a', label: 'Medical certificate (Form 1A)', accept: 'image/png,image/jpeg,application/pdf' });
+  }
+  return out;
+}
+
+function missingUploads(){
+  if(!session.service || !session.citizen) return [];
+  var done = session.uploads || {};
+  return requiredUploads(session.service, session.citizen).filter(function(u){ return !done[u.kind]; });
+}
+
+function buildUploadRow(kind, accept, onDone){
+  var row = document.createElement('div');
+  row.className = 'upload-row';
+
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = accept;
+  input.setAttribute('aria-label', 'Upload file');
+
+  var status = document.createElement('span');
+  status.className = 'upload-status';
+
+  var already = (session.uploads || {})[kind];
+  if(already){
+    row.classList.add('done');
+    status.textContent = '✓ Uploaded · ' + humanSize(already.size_bytes);
+  } else {
+    status.textContent = 'Not uploaded yet';
+  }
+
+  input.addEventListener('change', async function(){
+    var file = input.files && input.files[0];
+    if(!file) return;
+    row.classList.remove('done', 'failed');
+    status.textContent = 'Uploading…';
+    input.disabled = true;
+    try{
+      var doc = await uploadDocument(kind, file);
+      session.uploads = session.uploads || {};
+      session.uploads[kind] = doc;
+      row.classList.add('done');
+      status.textContent = '✓ Uploaded · ' + humanSize(doc.size_bytes);
+      if(onDone) onDone(doc);
+    } catch(err){
+      row.classList.add('failed');
+      status.textContent = err.message;
+      input.value = '';
+    } finally {
+      input.disabled = false;
+    }
+  });
+
+  row.appendChild(input);
+  row.appendChild(status);
+  return row;
+}
+
 function computeForm1a(service, citizen){
   var eligibility = (service && service.eligibility) || {};
   var minAge = eligibility.form1aMinAge;
@@ -110,6 +193,9 @@ function renderIntakeScreen(){
   service.checklist.forEach(function(item){
     var li = document.createElement('li');
     li.innerHTML = '<span class="tick">✓</span> ' + item.label + (item.badge ? ' <span class="doc-badge">' + item.badge + '</span>' : '');
+    if(item.upload){
+      li.appendChild(buildUploadRow(item.upload, 'image/png,image/jpeg'));
+    }
     list.appendChild(li);
   });
   var form1a = document.createElement('li');
@@ -117,12 +203,39 @@ function renderIntakeScreen(){
   form1a.id = 'form1a-line';
   form1a.hidden = true;
   form1a.innerHTML = '<span class="tick">✓</span><span>Medical certificate (Form 1A) — <strong id="form1a-reason">required</strong></span><a class="form-link" href="/forms/FORM-1A.pdf" target="_blank" rel="noopener">Open Form 1A</a>';
+  // The blank form was downloadable but there was nowhere to return the
+  // completed one, so this was a dead end before.
+  form1a.appendChild(buildUploadRow('form_1a', 'image/png,image/jpeg,application/pdf'));
   list.appendChild(form1a);
 
   document.getElementById('intake-fee-label').textContent = service.title + ' (' + service.form_number + ')';
   document.getElementById('intake-fee-amount').textContent = rupees(service.fee_cents);
   document.getElementById('intake-slot-section').hidden = !service.requires_slot;
   document.getElementById('intake-no-slot').hidden = !!service.requires_slot;
+  document.getElementById('intake-fee-note').textContent =
+    'Fixed by RTO ' + session.citizen.rto + '. No charges are added later in the process.';
+  if(service.requires_slot){
+    document.getElementById('intake-slot-note').textContent =
+      'Pick an available date for your RTO visit' + (service.slot_purpose ? ' (' + service.slot_purpose + ')' : '') + '.';
+  }
+
+  // Show why this RTO was chosen — jurisdiction follows the eKYC address, so
+  // the citizen can see it was not guessed from where they happen to be.
+  var basis = document.getElementById('intake-rto-basis');
+  if(session.citizen.pincode && session.citizen.rto){
+    basis.innerHTML = 'Your application goes to <strong>RTO ' + session.citizen.rto + '</strong> — the office with jurisdiction over your Aadhaar address (pincode ' + session.citizen.pincode + '). This is set by where you ordinarily reside, not your current location.';
+    basis.hidden = false;
+  } else {
+    basis.hidden = true;
+  }
+
+  var ack = document.getElementById('intake-road-safety');
+  var ackBox = document.getElementById('road-safety-check');
+  var needsAck = !!(service.eligibility && service.eligibility.roadSafetyTutorial);
+  ack.hidden = !needsAck;
+  ack.classList.remove('ack-missing');
+  ackBox.checked = false;
+  ackBox.onchange = function(){ if(ackBox.checked) ack.classList.remove('ack-missing'); };
 
   session.selectedSlot = null;
   document.getElementById('cal-times').hidden = true;
@@ -203,6 +316,8 @@ async function createApplication(serviceKey){
   var created = await api('/api/applications', { method:'POST', body:{ citizenId: session.citizen.id, serviceKey: serviceKey } });
   session.applicationId = created.application.id;
   session.referenceCode = created.application.reference_code;
+  // Uploads belong to an application, so a fresh one starts with none.
+  session.uploads = {};
   return created.application;
 }
 
@@ -305,11 +420,23 @@ function renderTrackScreen(){
     else if(i === idx) el.classList.add('active');
   });
 
+  // Track the actual status: this used to claim an officer was verifying
+  // documents even at 'details', where the fee is unpaid and nobody has looked
+  // at it yet. "Application" rather than "documents" because eKYC applications
+  // upload nothing.
   var expectedNote = document.getElementById('expected-note');
+  var due = formatDate(application.expected_by);
   if(application.escalated){
-    expectedNote.innerHTML = 'An RTO officer is verifying your documents.<br><strong>Now running past the expected ' + formatDate(application.expected_by) + ' date.</strong>';
+    expectedNote.innerHTML = 'An RTO officer is reviewing your application.<br><strong>Now running past the expected ' + due + ' date.</strong>';
+  } else if(application.status === 'details'){
+    expectedNote.innerHTML = 'Not submitted yet — complete the fee payment to send this for officer review.';
+  } else if(application.status === 'approved'){
+    expectedNote.innerHTML = '<strong>Approved.</strong> No further action is needed from you.';
   } else {
-    expectedNote.innerHTML = 'An RTO officer is verifying your documents. This stage usually takes ' + service.expected_days + ' working days.<br><strong>Expected completion by ' + formatDate(application.expected_by) + '.</strong>';
+    expectedNote.innerHTML = (application.status === 'paid'
+      ? 'Payment received. Your application is queued for officer review.'
+      : 'An RTO officer is reviewing your application.') +
+      '<br><strong>Usually ' + service.expected_days + ' working days — expected by ' + due + '.</strong>';
   }
   var escalationBanner = document.getElementById('escalation-banner');
   escalationBanner.hidden = !application.escalated;
@@ -331,12 +458,34 @@ function renderTrackScreen(){
 
   if(service.requires_slot){
     var form1a = computeForm1a(service, session.citizen);
-    var appointment = session.selectedSlot || { date: 'Tue 02 Sep 2026', time: '10:00 AM' };
+    var appointment = session.selectedSlot || { date: '—', time: '—' };
+    document.getElementById('appointment-purpose').textContent = service.slot_purpose
+      ? 'A visit is required for ' + service.slot_purpose + '.'
+      : 'A visit is required to complete this service.';
     document.getElementById('appointment-location').textContent = 'RTO ' + session.citizen.rto + ', ' + session.citizen.state;
     document.getElementById('appointment-datetime').textContent = appointment.date + ' · ' + appointment.time;
-    document.getElementById('appointment-carry').textContent = 'Acknowledgement slip, existing driving licence' + (form1a.required ? ', and completed Form 1A medical certificate' : '');
+    // Carry items are per service — a first-time learner has no existing
+    // licence to bring, which the old hardcoded string asked for.
+    var carry = service.carry_items || 'Acknowledgement slip';
+    document.getElementById('appointment-carry').textContent = carry + (form1a.required ? ', and completed Form 1A medical certificate' : '');
     renderRtoMap();
   }
+
+  renderApplicationDocuments();
+}
+
+function renderApplicationDocuments(){
+  var panel = document.getElementById('track-documents-panel');
+  var list = document.getElementById('track-documents');
+  var docs = session.documents || [];
+  if(!docs.length){ panel.hidden = true; return; }
+
+  list.innerHTML = docs.map(function(d){
+    return '<li><div><div class="d-name">' + d.label + '</div>' +
+      '<div class="d-meta">' + d.mime_type.split('/')[1].toUpperCase() + ' · ' + humanSize(d.size_bytes) + ' · uploaded ' + formatDate(d.uploaded_at) + '</div></div>' +
+      '<a class="btn ghost small" href="/api/documents/' + d.id + '/download">Download ↓</a></li>';
+  }).join('');
+  panel.hidden = false;
 }
 
 function renderRtoMap(){
@@ -372,18 +521,24 @@ async function openTrack(){
   session.application = data.application;
   session.timeline = data.timeline;
   session.rto = data.rto;
-  if(!session.service || session.service.key !== data.application.service_key){
-    session.service = {
-      key: data.application.service_key,
-      title: data.application.service_title,
-      fee_cents: data.application.fee_cents,
-      requires_slot: data.application.requires_slot,
-      expected_days: data.application.expected_days,
-      form_number: data.application.form_number,
-      checklist: [],
-      eligibility: {}
-    };
-  }
+  var docs = await api('/api/documents/application/' + session.applicationId);
+  session.documents = docs.documents;
+  // Always rebuild from the response: it now carries every service field, so
+  // this no longer depends on session state or dashboard data-attributes
+  // surviving the trip (requires_slot and form_number used to arrive undefined
+  // when landing here directly).
+  session.service = {
+    key: data.application.service_key,
+    title: data.application.service_title,
+    fee_cents: data.application.fee_cents,
+    requires_slot: data.application.requires_slot,
+    expected_days: data.application.expected_days,
+    form_number: data.application.form_number,
+    slot_purpose: data.application.slot_purpose,
+    carry_items: data.application.carry_items,
+    checklist: data.application.checklist || [],
+    eligibility: data.application.eligibility || {}
+  };
   renderTrackScreen();
   showScreen('screen-track');
 }
@@ -450,8 +605,54 @@ async function openDashboard(){
   }).join('');
 }
 
+// Start/end for each bookable window. Kept as an explicit table rather than
+// parsed out of the display label, whose en-dash and trailing meridiem ("3:00–
+// 4:00 PM") make parsing needlessly fragile.
+var CAL_TIME_RANGES = {
+  '10:00–11:00 AM': { start: '100000', end: '110000' },
+  '12:00–1:00 PM': { start: '120000', end: '130000' },
+  '3:00–4:00 PM': { start: '150000', end: '160000' },
+};
+
+function icsEscape(text){
+  return String(text).replace(/([,;\\])/g, '\\$1');
+}
+
 function downloadIcs(){
-  var ics = 'BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nSUMMARY:RTO visit - driving licence service\nDESCRIPTION:Carry acknowledgment slip\\, Form 1A\\, and existing licence.\nLOCATION:RTO Kukatpally\\, Hyderabad\nDTSTART:20260902T100000\nDTEND:20260902T110000\nEND:VEVENT\nEND:VCALENDAR';
+  var service = session.service || {};
+  var slot = session.selectedSlot;
+  if(!slot){
+    alert('Pick an appointment slot first — there is nothing to add to your calendar yet.');
+    return;
+  }
+
+  var day = new Date(slot.date);
+  if(isNaN(day.getTime())){
+    alert('Could not read the appointment date.');
+    return;
+  }
+  var stamp = day.getFullYear() +
+    String(day.getMonth() + 1).padStart(2, '0') +
+    String(day.getDate()).padStart(2, '0');
+  var range = CAL_TIME_RANGES[slot.time] || { start: '100000', end: '110000' };
+
+  var summary = 'RTO visit — ' + (service.title || 'driving licence service');
+  var description = 'Carry: ' + (service.carry_items || 'Acknowledgement slip') +
+    '. Application number: ' + (session.referenceCode || '—') + '.';
+  var location = 'RTO ' + session.citizen.rto + ', ' + session.citizen.state;
+
+  var ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'BEGIN:VEVENT',
+    'SUMMARY:' + icsEscape(summary),
+    'DESCRIPTION:' + icsEscape(description),
+    'LOCATION:' + icsEscape(location),
+    'DTSTART:' + stamp + 'T' + range.start,
+    'DTEND:' + stamp + 'T' + range.end,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\n');
   var blob = new Blob([ics], {type:'text/calendar'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
@@ -568,7 +769,7 @@ function vcard(opts){
   } else if(opts.icon){
     iconHtml = '<span class="vcard-icon">' + opts.icon + '</span>';
   }
-  return '<div class="vcard ' + state + '" style="animation-delay:' + delay + 's">' +
+  return '<div class="vcard ' + state + '"' + (opts.uploadKind ? ' data-upload-kind="' + opts.uploadKind + '" data-upload-accept="' + opts.uploadAccept + '"' : '') + ' style="animation-delay:' + delay + 's">' +
     iconHtml +
     '<div class="vcard-body">' +
       '<span class="vcard-label">' + opts.label + '</span>' +
@@ -601,15 +802,50 @@ function renderVoiceDetail(phase){
   }
   else if(phase === 'documents'){
     var form1a = computeForm1a(service, citizen);
+    var done = session.uploads || {};
     var rows = service.checklist.map(function(item){
+      // Items needing a file are not "ready" until one is actually attached —
+      // Setu cannot upload on the citizen's behalf, so the card carries the
+      // control and waits.
+      if(item.upload){
+        return {
+          icon: done[item.upload] ? '✓' : '↑',
+          label: done[item.upload] ? 'Uploaded' : 'Please attach this on screen',
+          value: item.label,
+          sub: item.badge,
+          state: done[item.upload] ? 'confirmed' : 'awaiting',
+          uploadKind: item.upload,
+          uploadAccept: 'image/png,image/jpeg',
+        };
+      }
       return { icon: '✓', label: 'Document ready', value: item.label, sub: item.badge, state: 'confirmed' };
     });
     if(form1a.required){
-      rows.push({ icon: '✓', label: 'Medical certificate needed', value: 'Form 1A <a class="form-link" href="/forms/FORM-1A.pdf" target="_blank" rel="noopener">Open form</a>', sub: form1a.reason, state: 'flag' });
+      rows.push({
+        icon: done.form_1a ? '✓' : '↑',
+        label: done.form_1a ? 'Form 1A uploaded' : 'Medical certificate needed',
+        value: 'Form 1A <a class="form-link" href="/forms/FORM-1A.pdf" target="_blank" rel="noopener">Open form</a>',
+        sub: form1a.reason,
+        state: done.form_1a ? 'confirmed' : 'flag',
+        uploadKind: 'form_1a',
+        uploadAccept: 'image/png,image/jpeg,application/pdf',
+      });
     }
     el.innerHTML = '<div class="vcard-list">' + rows.map(function(r, i){
-      return vcard({ icon: r.icon, label: r.label, value: r.value, sub: r.sub, state: r.state, delay: i * 0.07 });
+      return vcard({ icon: r.icon, label: r.label, value: r.value, sub: r.sub, state: r.state, delay: i * 0.07,
+        uploadKind: r.uploadKind, uploadAccept: r.uploadAccept });
     }).join('') + '</div>';
+
+    // vcard() builds markup as a string, so the live inputs are attached after.
+    el.querySelectorAll('[data-upload-kind]').forEach(function(card){
+      var kind = card.getAttribute('data-upload-kind');
+      card.querySelector('.vcard-body').appendChild(
+        buildUploadRow(kind, card.getAttribute('data-upload-accept'), function(doc){
+          notifyVoiceUpload(kind, doc);
+          renderVoiceDetail('documents');
+        })
+      );
+    });
   }
   else if(phase === 'slot'){
     var earliestDate = formatDate(new Date(CAL_YEAR, CAL_MONTH, Math.min.apply(null, CAL_AVAILABLE_DAYS)).toISOString());
@@ -646,6 +882,7 @@ function resetVoiceScreen(){
   session.selectedSlot = null;
   session.paymentDone = false;
   session.paymentProcessing = false;
+  session.uploads = {};
   setVoiceCaption('Tap "Start conversation" and allow microphone access to begin.');
   setVoiceUserCaption('');
   setVoiceStatus('Setu is ready');
@@ -674,6 +911,21 @@ function revealVoiceIntake(){
   progressPanel.hidden = false;
   progressPanel.classList.add('voice-reveal');
   renderVoiceProgress('details');
+}
+
+// The model has no way to observe a file picker, so tell it when one lands.
+// Injected as a bracketed user turn: that shape is what the Realtime API
+// accepts for text input, and the caption panel only renders speech
+// transcriptions, so this never shows up as something the citizen said.
+function notifyVoiceUpload(kind, doc){
+  if(!voiceDC || voiceDC.readyState !== 'open') return;
+  var pending = missingUploads();
+  var note = '[system] The citizen just uploaded their ' + (doc.label || kind) + '. ' +
+    (pending.length
+      ? 'Still needed: ' + pending.map(function(u){ return u.label; }).join(', ') + '. Ask them for it.'
+      : 'All required uploads are now done — acknowledge briefly and continue.');
+  sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: note }] } });
+  requestVoiceResponse(250);
 }
 
 function stopVoiceConnection(){
@@ -720,8 +972,17 @@ async function handleVoiceToolCall(name, args, callId){
       renderVoiceProgress('documents');
     }
     else if(name === 'confirm_documents'){
-      result = { ok: true };
-      renderVoiceProgress(session.service.requires_slot ? 'slot' : 'payment');
+      // Spoken confirmation is not enough when a file is genuinely required.
+      var pending = missingUploads();
+      if(pending.length){
+        renderVoiceProgress('documents');
+        result = { error: 'Not yet — the citizen still has to attach: ' +
+          pending.map(function(u){ return u.label; }).join(', ') +
+          '. There is an upload box on their screen for each one. Ask them to attach it, then call this again.' };
+      } else {
+        result = { ok: true };
+        renderVoiceProgress(session.service.requires_slot ? 'slot' : 'payment');
+      }
     }
     else if(name === 'select_slot'){
       var availableDates = getAvailableSlotDates();
@@ -841,6 +1102,7 @@ async function startVoiceRenewal(){
       requiresSlot: session.service.requires_slot,
       form1a: form1a,
       checklist: session.service.checklist,
+      uploads: requiredUploads(session.service, session.citizen).map(function(u){ return u.label; }),
       earliestSlotDate: formatDate(new Date(CAL_YEAR, CAL_MONTH, Math.min.apply(null, CAL_AVAILABLE_DAYS)).toISOString()),
       availableDates: getAvailableSlotDates(),
       slotTimes: CAL_TIMES,
@@ -956,6 +1218,11 @@ async function handleAction(action, el){
     else if(action === 'goto-pay'){
       if(session.service.requires_slot && !session.selectedSlot){
         document.getElementById('cal-slot-summary').textContent = 'Please pick a date and time above to continue.';
+        return;
+      }
+      var ackRow = document.getElementById('intake-road-safety');
+      if(!ackRow.hidden && !document.getElementById('road-safety-check').checked){
+        ackRow.classList.add('ack-missing');
         return;
       }
       renderPayScreen();
