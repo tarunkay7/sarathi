@@ -474,8 +474,8 @@ function enableVoiceWakeWord(){
   wakeRecognition.lang = 'en-IN';
 
   wakeRecognition.onstart = function(){
-    setVoiceCaption('Listening for “Hey Vaaha”…');
-    setVoiceStatus('Say “Hey Vaaha” to start');
+    setVoiceCaption('Listening for “Hello”…');
+    setVoiceStatus('Say “Hello” to start');
     btn.hidden = true;
   };
   wakeRecognition.onresult = function(event){
@@ -483,9 +483,9 @@ function enableVoiceWakeWord(){
     var heard = latest && latest[0] ? latest[0].transcript.trim() : '';
     if(!heard){ return; }
     setVoiceUserCaption(heard);
-    if(/(?:^|\b)hey\s+(?:vaaha|vaha)(?:\b|$)/i.test(heard)){
+    if(/\bhello\b/i.test(heard)){
       wakeWordArmed = false;
-      setVoiceCaption('Wake word heard. Connecting…');
+      setVoiceCaption('Hello heard. Connecting…');
       setVoiceStatus('Connecting to Setu');
       try{ wakeRecognition.stop(); } catch(e){}
       wakeRecognition = null;
@@ -496,7 +496,7 @@ function enableVoiceWakeWord(){
     if(event.error === 'aborted' || event.error === 'no-speech'){ return; }
     wakeWordArmed = false;
     wakeRecognition = null;
-    setVoiceCaption('Microphone access is needed to listen for “Hey Vaaha”.');
+    setVoiceCaption('Microphone access is needed to listen for “Hello”.');
     setVoiceStatus('Microphone unavailable');
     btn.hidden = false;
   };
@@ -513,7 +513,7 @@ function enableVoiceWakeWord(){
   catch(err){
     wakeWordArmed = false;
     wakeRecognition = null;
-    setVoiceCaption('Microphone access is needed to listen for “Hey Vaaha”.');
+    setVoiceCaption('Microphone access is needed to listen for “Hello”.');
     setVoiceStatus('Microphone unavailable');
   }
 }
@@ -668,7 +668,7 @@ function resetVoiceScreen(){
   session.selectedSlot = null;
   session.paymentDone = false;
   session.paymentProcessing = false;
-  setVoiceCaption('Enable your microphone, then say “Hey Vaaha” to begin.');
+  setVoiceCaption('Enable your microphone, then say “Hello” to begin.');
   setVoiceUserCaption('');
   setVoiceStatus('Setu is ready');
   document.getElementById('voice-mic-dot').classList.remove('live');
