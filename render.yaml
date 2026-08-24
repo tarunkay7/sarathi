@@ -13,3 +13,7 @@ services:
         sync: false
       - key: GOOGLE_MAPS_STATIC_KEY
         sync: false
+      - key: PDF_SERVICES_CLIENT_ID
+        sync: false
+      - key: PDF_SERVICES_CLIENT_SECRET
+        sync: false

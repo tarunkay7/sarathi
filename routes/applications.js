@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db/pool');
 const asyncHandler = require('./asyncHandler');
+const receipt = require('./receipt');
 
 const router = express.Router();
 
@@ -142,6 +143,41 @@ router.get('/:id', asyncHandler(async (req, res) => {
     [id]
   );
   res.json({ application, timeline: timeline.rows, rto });
+}));
+
+router.get('/:id/receipt.pdf', asyncHandler(async (req, res) => {
+  const id = requireInteger(req.params.id, res);
+  if (id === null) return;
+
+  const data = await receipt.loadReceiptData(id);
+  if (!data) return res.status(404).json({ error: 'Application not found.' });
+
+  // 501 rather than 500: the client treats this as "fall back to the browser's
+  // print dialog" instead of showing an error.
+  if (!receipt.credentialsConfigured()) {
+    return res.status(501).json({ error: 'PDF generation is not configured on this server yet.' });
+  }
+
+  const html = receipt.buildReceiptHtml(data);
+  try {
+    const stream = await receipt.renderWithAdobe(html);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${data.application.reference_code}.pdf"`);
+    stream.pipe(res);
+  } catch (err) {
+    console.error('[receipt] Adobe render failed:', err && err.message);
+    res.status(502).json({ error: 'Could not generate the PDF just now. Please try again.' });
+  }
+}));
+
+// Lets the layout be checked without spending an Adobe transaction.
+router.get('/:id/receipt.html', asyncHandler(async (req, res) => {
+  const id = requireInteger(req.params.id, res);
+  if (id === null) return;
+  const data = await receipt.loadReceiptData(id);
+  if (!data) return res.status(404).json({ error: 'Application not found.' });
+  res.type('html').send(receipt.buildReceiptHtml(data));
 }));
 
 router.post('/:id/escalate', asyncHandler(async (req, res) => {

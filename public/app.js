@@ -683,6 +683,39 @@ function icsEscape(text){
   return String(text).replace(/([,;\\])/g, '\\$1');
 }
 
+async function downloadReceipt(btn){
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Preparing…';
+  try{
+    var res = await fetch('/api/applications/' + session.applicationId + '/receipt.pdf');
+    if(res.status === 501){
+      // Server has no Adobe credentials — the print dialog still produces a
+      // usable PDF, so fall through to it rather than dead-ending.
+      btn.textContent = original;
+      window.print();
+      return;
+    }
+    if(!res.ok){
+      var data = {};
+      try { data = await res.json(); } catch(e) {}
+      throw new Error(data.error || 'Could not generate the receipt.');
+    }
+    var blob = await res.blob();
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'receipt-' + (session.referenceCode || 'sarathi') + '.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch(err){
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
 function downloadIcs(){
   var service = session.service || {};
   var slot = session.selectedSlot;
@@ -1328,6 +1361,7 @@ async function handleAction(action, el){
     else if(action === 'escalate-demo'){ await escalateDemo(); }
     else if(action === 'add-calendar'){ downloadIcs(); }
     else if(action === 'print-receipt'){ window.print(); }
+    else if(action === 'download-receipt'){ await downloadReceipt(el); }
     else if(action === 'toggle-lang'){ document.body.classList.toggle('lang-hi'); }
     else if(action === 'font-inc'){ fontScale = Math.min(130, fontScale+10); applyFont(); }
     else if(action === 'font-dec'){ fontScale = Math.max(90, fontScale-10); applyFont(); }
