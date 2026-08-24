@@ -304,9 +304,14 @@
       </div>
 
       <div class="voice-caption-panel">
-        <span class="voice-mic-dot" id="voice-mic-dot"></span>
-        <div class="voice-caption" id="voice-caption">Tap "Start conversation" and allow microphone access to begin.</div>
-        <div class="voice-caption-user" id="voice-caption-user"></div>
+        <div class="voice-status" aria-live="polite">
+          <span class="voice-mic-dot" id="voice-mic-dot" aria-hidden="true"></span>
+          <span id="voice-status-text">Setu is ready</span>
+        </div>
+        <div class="voice-caption-viewport">
+          <div class="voice-caption" id="voice-caption" role="log" aria-live="polite" aria-relevant="additions text">Tap "Start conversation" and allow microphone access to begin.</div>
+        </div>
+        <div class="voice-caption-user" id="voice-caption-user" aria-live="polite"></div>
       </div>
     </div>
 

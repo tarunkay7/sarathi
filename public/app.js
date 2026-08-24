@@ -435,7 +435,15 @@ var voiceResponseQueued = false;
 var voiceResponseTimer = null;
 
 function setVoiceCaption(text){
-  document.getElementById('voice-caption').textContent = text;
+  var caption = document.getElementById('voice-caption');
+  caption.textContent = text;
+  // Keep new words in view without allowing the growing transcript to affect
+  // the card's dimensions.
+  caption.scrollTop = caption.scrollHeight;
+}
+
+function setVoiceStatus(text){
+  document.getElementById('voice-status-text').textContent = text;
 }
 
 function startVoiceCaptionReveal(){
@@ -580,6 +588,7 @@ function resetVoiceScreen(){
   session.paymentDone = false;
   setVoiceCaption('Tap "Start conversation" and allow microphone access to begin.');
   setVoiceUserCaption('');
+  setVoiceStatus('Setu is ready');
   document.getElementById('voice-mic-dot').classList.remove('live');
   document.getElementById('voice-toggle-btn').hidden = false;
   document.getElementById('voice-toggle-btn').disabled = false;
@@ -711,6 +720,7 @@ function handleVoiceEvent(evt){
     voiceResponseActive = true;
     voiceCaptionBuffer = '';
     voiceCaptionRevealed = '';
+    setVoiceStatus('Setu is speaking');
   }
   else if(evt.type === 'response.output_audio_transcript.delta'){
     if(voiceCaptionBuffer === ''){
@@ -724,6 +734,7 @@ function handleVoiceEvent(evt){
   }
   else if(evt.type === 'response.done'){
     voiceResponseActive = false;
+    setVoiceStatus('Setu is listening');
     var output = (evt.response && evt.response.output) || [];
     var hadToolCall = false;
     output.forEach(function(item){
@@ -748,6 +759,7 @@ async function startVoiceRenewal(){
   var btn = document.getElementById('voice-toggle-btn');
   btn.disabled = true;
   setVoiceCaption('Connecting…');
+  setVoiceStatus('Connecting to Setu');
 
   try{
     var data = await api('/api/applications/service/renew');
@@ -777,6 +789,7 @@ async function startVoiceRenewal(){
       console.log('[voice] ice state:', voicePC.iceConnectionState);
       if(voicePC.iceConnectionState === 'failed' || voicePC.iceConnectionState === 'disconnected'){
         setVoiceCaption('Connection lost (ICE ' + voicePC.iceConnectionState + '). Try again.');
+        setVoiceStatus('Connection lost');
       }
     };
     voicePC.onconnectionstatechange = function(){ console.log('[voice] connection state:', voicePC.connectionState); };
@@ -788,6 +801,7 @@ async function startVoiceRenewal(){
     voiceDC.addEventListener('open', function(){
       console.log('[voice] data channel open');
       setVoiceCaption('');
+      setVoiceStatus('Setu is listening');
       document.getElementById('voice-mic-dot').classList.add('live');
       btn.hidden = true;
       requestVoiceResponse(0);
@@ -799,6 +813,7 @@ async function startVoiceRenewal(){
     voiceDC.addEventListener('close', function(){
       console.log('[voice] data channel closed');
       setVoiceCaption('Disconnected.');
+      setVoiceStatus('Disconnected');
       document.getElementById('voice-mic-dot').classList.remove('live');
     });
 
@@ -823,6 +838,7 @@ async function startVoiceRenewal(){
   } catch(err){
     console.error('[voice] startVoiceRenewal failed:', err);
     setVoiceCaption(err.message || 'Could not start the voice assistant.');
+    setVoiceStatus('Could not connect');
     btn.disabled = false;
     stopVoiceConnection();
   }
