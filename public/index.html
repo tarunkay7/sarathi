@@ -192,19 +192,14 @@
   <div class="dash-wrap">
     <div class="crumb"><a href="#" data-action="goto-home">Home</a> › Dashboard</div>
     <div class="dash-head">
-      <div>
-        <h1>Welcome, <span id="dashboard-name">citizen</span></h1>
-        <p class="lead">All records linked to your registered mobile number.</p>
+      <div class="dash-identity">
+        <div class="profile-avatar" id="dashboard-avatar">—</div>
+        <div>
+          <h1>Welcome, <span id="dashboard-name">citizen</span></h1>
+          <p class="dash-meta"><span id="dashboard-mobile">—</span> · <span id="dashboard-state">—</span></p>
+        </div>
       </div>
       <button class="btn ghost small" data-action="logout">Log out</button>
-    </div>
-
-    <div class="profile-strip">
-      <div class="profile-avatar" id="dashboard-avatar">—</div>
-      <div class="profile-info">
-        <div class="name" id="dashboard-profile-name">—</div>
-        <div class="mobile"><span id="dashboard-mobile">—</span> · <span id="dashboard-state">—</span></div>
-      </div>
     </div>
 
     <div class="dash-grid">
@@ -515,14 +510,13 @@
 
     <div class="track-grid">
 
-    <div class="panel">
-      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h9l7 7-9 9-7-7Z"/><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none"/></svg>Reference</span> <span class="sub" id="track-id">TS-DL-2026-4821</span></div>
+    <div class="panel" id="track-reference-panel">
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h9l7 7-9 9-7-7Z"/><circle cx="9" cy="9" r="1.3" fill="currentColor" stroke="none"/></svg>Current status</span> <span class="sub" id="track-id">TS-DL-2026-4821</span></div>
       <div class="panel-body">
         <div class="stage-stepper">
           <div class="stage done" id="stage-submitted"><span class="dot"></span>Submitted</div>
           <div class="stage" id="stage-review"><span class="dot"></span>Under review</div>
           <div class="stage" id="stage-approved"><span class="dot"></span>Approved</div>
-          <div class="stage" id="stage-ready"><span class="dot"></span>Ready</div>
         </div>
         <div class="banner info" id="expected-note">
           An RTO officer is verifying your documents. This stage usually takes 2–4 working days.<br><strong>Expected completion by 05 Sep 2026.</strong>
@@ -533,33 +527,6 @@
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Timeline</span></div>
-      <div class="panel-body">
-        <ul class="timeline" id="timeline-log">
-          <li>Under review · 22 Aug 2026, 10:16 IST</li>
-          <li>Application submitted · 22 Aug 2026, 10:15 IST</li>
-          <li>Payment confirmed (₹400) · 22 Aug 2026, 10:14 IST</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="panel" id="receipt-panel">
-      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.3L14 21l-2-1.3L10 21l-2-1.3L6 21V3Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>Receipt</span></div>
-      <div class="panel-body">
-        <div class="rec-body" style="padding:4px 0;">
-          <div class="kv"><span class="k">Applicant</span><span id="receipt-name">—</span></div>
-          <div class="kv"><span class="k">Service</span><span id="receipt-service">—</span></div>
-          <div class="kv"><span class="k">Reference</span><span id="receipt-ref">—</span></div>
-          <div class="kv"><span class="k">Amount paid</span><span id="receipt-amount">—</span></div>
-          <div class="kv"><span class="k">Payment method</span><span id="receipt-method">—</span></div>
-          <div class="kv"><span class="k">RTO</span><span id="receipt-rto">—</span></div>
-          <div class="kv"><span class="k">Date &amp; time</span><span id="receipt-datetime">—</span></div>
-        </div>
-        <button class="btn ghost small" data-action="print-receipt" style="margin-top:10px;">Print / Save as PDF</button>
-      </div>
-    </div>
-
     <div class="panel" id="track-appointment-panel">
       <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="7" y1="3" x2="7" y2="7"/><line x1="17" y1="3" x2="17" y2="7"/><path d="M8.5 14.5l2 2 4.5-4.5"/></svg>Your RTO appointment</span></div>
       <div class="panel-body">
@@ -567,7 +534,7 @@
         <div class="rec-body" style="padding:4px 0;">
           <div class="kv"><span class="k">Location</span><strong id="appointment-location">—</strong></div>
           <div class="kv"><span class="k">Time slot</span><strong id="appointment-datetime">—</strong></div>
-          <div class="kv"><span class="k">Things to carry</span><strong id="appointment-carry">—</strong></div>
+          <div class="kv"><span class="k">Documents to carry</span><strong id="appointment-carry">—</strong></div>
         </div>
         <div class="rto-map" id="rto-map" hidden>
           <div class="rto-map-frame" id="rto-map-frame"></div>
@@ -580,6 +547,22 @@
           </div>
         </div>
         <button class="btn ghost small" data-action="add-calendar" style="margin-top:8px;">Add to calendar</button>
+      </div>
+    </div>
+
+    <div class="panel" id="receipt-panel">
+      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.3L14 21l-2-1.3L10 21l-2-1.3L6 21V3Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>Payment receipt</span></div>
+      <div class="panel-body">
+        <div class="rec-body" style="padding:4px 0;">
+          <div class="kv"><span class="k">Applicant</span><span id="receipt-name">—</span></div>
+          <div class="kv"><span class="k">Service</span><span id="receipt-service">—</span></div>
+          <div class="kv"><span class="k">Application number</span><span id="receipt-ref">—</span></div>
+          <div class="kv"><span class="k">Amount paid</span><span id="receipt-amount">—</span></div>
+          <div class="kv"><span class="k">Payment method</span><span id="receipt-method">—</span></div>
+          <div class="kv"><span class="k">RTO</span><span id="receipt-rto">—</span></div>
+          <div class="kv"><span class="k">Date &amp; time</span><span id="receipt-datetime">—</span></div>
+        </div>
+        <button class="btn ghost small" data-action="print-receipt" style="margin-top:10px;">Print / Save as PDF</button>
       </div>
     </div>
 

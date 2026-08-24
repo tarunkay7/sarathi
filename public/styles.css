@@ -72,9 +72,21 @@
   /* The status screen lays its panels out 2-up, so it needs the same width as
      the dashboard rather than the narrow single-column form width. */
   main.wrap:has(#screen-track.active){max-width:1040px;}
-  .track-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start;}
+  /* Reference and receipt stack in the left column; the tall appointment card
+     owns the right one outright, so neither side waits on the other's height. */
+  .track-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-areas:"reference appointment" "receipt appointment";gap:18px;align-items:start;}
   .track-grid > .panel{margin-bottom:0;}
-  @media(max-width:860px){.track-grid{grid-template-columns:1fr;}}
+  #track-reference-panel{grid-area:reference;}
+  #track-appointment-panel{grid-area:appointment;}
+  #receipt-panel{grid-area:receipt;}
+  /* Services with no RTO visit hide the appointment panel — collapse to one
+     column rather than reserving an empty half. */
+  .track-grid:has(#track-appointment-panel[hidden]){grid-template-columns:1fr;
+    grid-template-areas:"reference" "receipt";}
+  @media(max-width:860px){
+    .track-grid{grid-template-columns:1fr;grid-template-areas:"reference" "appointment" "receipt";}
+  }
   .crumb{font-size:12px;color:var(--ink-soft);margin-bottom:16px;}
   .crumb a{text-decoration:none;}
 
@@ -139,11 +151,13 @@
   .rec-stepper.stage-stepper::before{top:5px;}
   .rec-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;padding:14px 16px 4px;}
   .rec-fact{display:flex;flex-direction:column;gap:2px;min-width:0;}
-  .rec-fact .k{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.03em;font-weight:700;}
+  .rec-fact .k{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.03em;font-weight:700;}
   .rec-fact .v{font-size:14px;font-weight:700;color:var(--ink);}
-  .rec-body{padding:12px 16px;font-size:13.5px;color:var(--ink-soft);}
-  .rec-body .kv{display:flex;justify-content:space-between;padding:3px 0;}
-  .rec-body .kv .k{color:var(--ink-faint);}
+  /* Values carry the ink; labels sit one step back but stay above the 4.5:1
+     contrast floor, which --ink-faint did not clear at this size. */
+  .rec-body{padding:12px 16px;font-size:13.5px;color:var(--ink);}
+  .rec-body .kv{display:flex;justify-content:space-between;gap:16px;padding:3px 0;}
+  .rec-body .kv .k{color:var(--ink-soft);font-weight:600;}
   .rec-actions{padding:8px 16px 14px;}
 
   .dash-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
@@ -152,11 +166,12 @@
   .svc-grid.compact .svc-card{padding:13px 12px;gap:5px;}
   .svc-grid.compact .svc-ico{width:30px;height:30px;border-radius:9px;}
   .svc-grid.compact .t{font-size:13px;}
-  .profile-strip{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:16px 18px;margin-bottom:18px;}
+  /* Scoped to .dash-wrap so the voice screen's own .dash-head is untouched. */
+  .dash-wrap .dash-head{align-items:center;margin-bottom:20px;}
+  .dash-wrap .dash-head h1{margin:0 0 2px;}
+  .dash-identity{display:flex;align-items:center;gap:14px;min-width:0;}
+  .dash-meta{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin:0;}
   .profile-avatar{width:46px;height:46px;border-radius:50%;background:var(--indigo-soft);color:var(--indigo);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;font-size:15px;flex:0 0 auto;}
-  .profile-info{flex:1;min-width:0;}
-  .profile-info .name{font-size:15px;font-weight:700;color:var(--ink);}
-  .profile-info .mobile{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin-top:2px;}
 
   .dash-wrap{max-width:1040px;margin:0 auto;padding:26px 20px 48px;}
   .dash-grid{display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start;margin-top:20px;}
@@ -193,7 +208,7 @@
 
   .infogrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule-soft);border:1px solid var(--rule-soft);border-radius:var(--radius);overflow:hidden;margin-bottom:18px;}
   .infogrid .cell{background:var(--surface);padding:10px 14px;font-size:13px;}
-  .infogrid .cell .k{font-size:11px;color:var(--ink-faint);display:block;text-transform:uppercase;letter-spacing:.04em;}
+  .infogrid .cell .k{font-size:11px;color:var(--ink-soft);display:block;text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
   .infogrid .cell .v{font-weight:600;color:var(--ink);}
   .infogrid .cell.auto .v::after{content:" · auto";font-size:10px;color:var(--green);font-weight:600;}
 
@@ -292,7 +307,7 @@
   @media(prefers-reduced-motion: reduce){.vcard{animation:none;}}
   .vcard-icon{width:26px;height:26px;border-radius:50%;background:var(--surface-sunk);color:var(--ink-faint);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:0 0 auto;margin-top:1px;}
   .vcard-body{display:flex;flex-direction:column;min-width:0;}
-  .vcard-label{font-size:11px;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+  .vcard-label{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
   .vcard-value{font-size:16px;font-weight:700;color:var(--ink);margin-top:2px;}
   .vcard-sub{font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
   .vcard.confirmed{border-color:var(--green);background:var(--green-soft);}
@@ -312,7 +327,9 @@
   @keyframes vcard-pop{0%{transform:scale(1);}55%{transform:scale(1.045);}100%{transform:scale(1);}}
   @media(prefers-reduced-motion: reduce){.vcard.just-confirmed{animation:none;}}
   .stage-stepper{display:flex;justify-content:space-between;position:relative;margin:16px 0 8px;}
-  .stage-stepper::before{content:"";position:absolute;top:7px;left:8%;right:8%;height:2px;background:var(--rule);}
+  /* Inset to the centre of the outer dots: 3 equal stages put those at 1/6 and
+     5/6 of the track, so the connector stops under them instead of overshooting. */
+  .stage-stepper::before{content:"";position:absolute;top:7px;left:16.7%;right:16.7%;height:2px;background:var(--rule);}
   .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:var(--ink-faint);flex:1;text-align:center;}
   .stage .dot{width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--rule);}
   .stage.done .dot{background:var(--green);border-color:var(--green);}
@@ -337,9 +354,6 @@
   .banner.note{background:var(--green-soft);color:#1D5A38;border-left:3px solid var(--green);}
   .banner[hidden]{display:none;}
 
-  ul.timeline{list-style:none;margin:0;padding:0;}
-  ul.timeline li{font-size:12.5px;color:var(--ink-soft);padding:7px 0 7px 18px;border-left:2px solid var(--rule);position:relative;}
-  ul.timeline li::before{content:"";position:absolute;left:-5px;top:12px;width:8px;height:8px;border-radius:50%;background:var(--indigo);}
 
   .spinner{width:26px;height:26px;border:3px solid var(--rule);border-top-color:var(--indigo);border-radius:50%;margin:10px auto;animation:spin .9s linear infinite;}
   .sync-loading{text-align:center;padding:80px 20px;}
@@ -475,7 +489,11 @@
     #screen-track > .track-grid,
     #screen-track .track-grid > #receipt-panel,
     #screen-track .track-grid > #track-appointment-panel:not([hidden]){display:block !important;}
-    #screen-track .track-grid{grid-template-columns:none !important;gap:0 !important;}
+    /* On screen the appointment sits above the receipt; a printed receipt
+       should still lead with the payment record, so restore that order here. */
+    #screen-track .track-grid{display:flex !important;flex-direction:column;gap:0 !important;}
+    #screen-track .track-grid > #receipt-panel{order:1;}
+    #screen-track .track-grid > #track-appointment-panel{order:2;}
     #screen-track .track-grid > .panel{margin-bottom:5mm !important;}
     .receipt-print-header{display:flex !important;align-items:flex-start;justify-content:space-between;padding:0 0 7mm;border-bottom:3px solid #22315c;}
     .receipt-print-header h1{font-family:Arial,sans-serif;font-size:20pt;line-height:1.15;margin:2mm 0 1mm;color:#22315c;}

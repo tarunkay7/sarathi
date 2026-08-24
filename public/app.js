@@ -219,7 +219,7 @@ function renderPayScreen(){
   var list = document.getElementById('pay-summary-list');
   list.innerHTML =
     '<li><span class="tick">✓</span> ' + service.title + ' (' + service.form_number + ')</li>' +
-    '<li><span class="tick">✓</span> Reference: ' + session.referenceCode + '</li>' +
+    '<li><span class="tick">✓</span> Application number: ' + session.referenceCode + '</li>' +
     (service.requires_slot ? '<li><span class="tick">✓</span> Slot: Tue 02 Sep 2026 · RTO ' + session.citizen.rto + '</li>' : '<li><span class="tick">✓</span> No RTO visit required</li>');
   document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
   var ps = document.getElementById('pay-status'); ps.hidden = true; ps.innerHTML = '';
@@ -265,7 +265,7 @@ async function runPayment(delay){
       if(t) t.textContent = 'Awaiting bank confirmation — ' + secs + 's';
     });
     status.innerHTML = '<div class="stamp">PAYMENT<br>CONFIRMED</div>' +
-      '<p class="rec-id" style="text-align:center;">Reference: ' + session.referenceCode + '</p>' +
+      '<p class="rec-id" style="text-align:center;">Application number: ' + session.referenceCode + '</p>' +
       '<ul class="checklist payment-notifications">' +
         '<li><span class="tick">✓</span><span><strong>Email sent successfully</strong><br><span class="hint">Receipt and appointment details sent to your email address on file.</span></span></li>' +
         '<li><span class="tick">✓</span><span><strong>Mobile confirmation sent successfully</strong><br><span class="hint">SMS sent to ' + maskMobile(session.citizen.mobile_number) + '.</span></span></li>' +
@@ -278,7 +278,7 @@ async function runPayment(delay){
 }
 
 function stageIndex(status){
-  return { details:0, paid:0, under_review:1, approved:2, ready:3 }[status] || 0;
+  return { details:0, paid:0, under_review:1, approved:2 }[status] || 0;
 }
 
 var APP_STATUS_META = {
@@ -286,9 +286,8 @@ var APP_STATUS_META = {
   paid: { label: 'Paid', chip: 'info' },
   under_review: { label: 'Under review', chip: 'warn' },
   approved: { label: 'Approved', chip: 'ok' },
-  ready: { label: 'Ready', chip: 'ok' },
 };
-var REC_STAGE_LABELS = ['Submitted', 'Review', 'Approved', 'Ready'];
+var REC_STAGE_LABELS = ['Submitted', 'Review', 'Approved'];
 var REC_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>';
 
 function renderTrackScreen(){
@@ -297,7 +296,7 @@ function renderTrackScreen(){
 
   document.getElementById('track-id').textContent = application.reference_code;
 
-  var stages = ['stage-submitted','stage-review','stage-approved','stage-ready'];
+  var stages = ['stage-submitted','stage-review','stage-approved'];
   var idx = stageIndex(application.status);
   stages.forEach(function(id, i){
     var el = document.getElementById(id);
@@ -315,16 +314,10 @@ function renderTrackScreen(){
   var escalationBanner = document.getElementById('escalation-banner');
   escalationBanner.hidden = !application.escalated;
 
-  var log = document.getElementById('timeline-log');
-  log.innerHTML = '';
-  session.timeline.forEach(function(evt){
-    var li = document.createElement('li');
-    li.textContent = evt.label + ' · ' + formatDateTime(evt.occurred_at);
-    log.appendChild(li);
-  });
-
   document.getElementById('track-appointment-panel').hidden = !service.requires_slot;
 
+  // session.timeline is still needed for the receipt timestamp even though the
+  // timeline is no longer shown as its own panel.
   var payEvent = session.timeline.find(function(evt){ return evt.label.indexOf('Payment confirmed') === 0; });
   document.getElementById('track-confirmation-panel').hidden = !payEvent;
   document.getElementById('confirmation-mobile').textContent = maskMobile(session.citizen.mobile_number);
@@ -416,7 +409,6 @@ function maskMobile(mobile){
 async function openDashboard(){
   document.getElementById('dashboard-name').textContent = session.citizen.name;
   document.getElementById('dashboard-avatar').textContent = initials(session.citizen.name);
-  document.getElementById('dashboard-profile-name').textContent = session.citizen.name;
   document.getElementById('dashboard-mobile').textContent = maskMobile(session.citizen.mobile_number);
   document.getElementById('dashboard-state').textContent = session.citizen.state + ' · ' + session.citizen.rto + ' RTO';
   document.getElementById('doc-dl-id').textContent = session.citizen.dl_number || '—';

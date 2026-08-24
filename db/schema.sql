@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS applications (
   citizen_id INTEGER NOT NULL REFERENCES citizens(id),
   service_key TEXT NOT NULL REFERENCES services(key),
   status TEXT NOT NULL DEFAULT 'details'
-    CHECK (status IN ('details','paid','under_review','approved','ready')),
+    CHECK (status IN ('details','paid','under_review','approved')),
   expected_by DATE,
   escalated BOOLEAN NOT NULL DEFAULT FALSE,
   escalated_at TIMESTAMPTZ,
@@ -37,6 +37,12 @@ CREATE TABLE IF NOT EXISTS applications (
   slot_location TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- 'ready' was dropped from the status flow; approved is now the final stage.
+-- The CREATE above is skipped on existing databases, so restate the constraint.
+ALTER TABLE applications DROP CONSTRAINT IF EXISTS applications_status_check;
+ALTER TABLE applications ADD CONSTRAINT applications_status_check
+  CHECK (status IN ('details','paid','under_review','approved'));
 
 CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,
