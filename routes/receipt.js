@@ -69,6 +69,11 @@ function buildReceiptHtml(data) {
   .flag i:nth-child(1) { background: #D98A2B; }
   .flag i:nth-child(2) { background: #F3EFE4; }
   .flag i:nth-child(3) { background: #2F7A4F; }
+  /* States on the document itself what the footer already says, so the receipt
+     cannot be mistaken for an official one if it is printed or forwarded. */
+  .proto { background: #FBF0DF; border: 1px solid #D98A2B; color: #A3660F; font-size: 7.5pt;
+           font-weight: bold; text-transform: uppercase; letter-spacing: .06em; text-align: center;
+           padding: 4px 8px; border-radius: 4px; margin-bottom: 11px; }
   header { display: flex; justify-content: space-between; align-items: flex-start;
            border-bottom: 3px solid #22315C; padding-bottom: 13px; margin-bottom: 15px; }
   .kicker { text-transform: uppercase; letter-spacing: .12em; font-size: 7.5pt; font-weight: bold; color: #A3660F; }
@@ -96,11 +101,12 @@ function buildReceiptHtml(data) {
 </style></head>
 <body>
   <div class="flag"><i></i><i></i><i></i></div>
+  <div class="proto">Prototype — not an official government document · mock data only</div>
   <header>
     <div>
-      <div class="kicker">Sarathi Parivahan Sewa</div>
+      <div class="kicker">Sarathi · concept redesign</div>
       <h1>Payment Receipt &amp; Acknowledgement</h1>
-      <p>Ministry of Road Transport &amp; Highways, Government of India</p>
+      <p>Independent prototype — not affiliated with or endorsed by MoRTH or NIC</p>
     </div>
     <div class="mark">S</div>
   </header>
