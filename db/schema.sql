@@ -141,3 +141,36 @@ WHERE status IN ('reconciling','paid')
 CREATE UNIQUE INDEX IF NOT EXISTS payments_one_live_per_application
   ON payments (application_id)
   WHERE status IN ('reconciling','paid');
+
+-- Grievances. The current portal makes the citizen pick a category and a
+-- subject line before it will accept the complaint, which is why so much of it
+-- lands in the wrong queue; here they write in their own words and the triage
+-- assigns the category. answered_immediately marks the ones that never needed a
+-- queue at all — most "where is my licence" tickets are answerable from the
+-- application row the citizen is already looking at.
+-- triaged_by records whether the model or the keyword fallback classified it, so
+-- the UI can be honest about which one the citizen is reading.
+CREATE TABLE IF NOT EXISTS grievances (
+  id SERIAL PRIMARY KEY,
+  ticket_code TEXT UNIQUE NOT NULL,
+  citizen_id INTEGER NOT NULL REFERENCES citizens(id),
+  -- Nullable: a grievance can be about the service in general rather than one
+  -- application. SET NULL so deleting an application never destroys the ticket.
+  application_id INTEGER REFERENCES applications(id) ON DELETE SET NULL,
+  body TEXT NOT NULL,
+  category TEXT NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'normal'
+    CHECK (severity IN ('low','normal','high')),
+  summary TEXT,
+  route_to TEXT,
+  citizen_reply TEXT,
+  answered_immediately BOOLEAN NOT NULL DEFAULT FALSE,
+  triaged_by TEXT NOT NULL DEFAULT 'rules'
+    CHECK (triaged_by IN ('openai','rules')),
+  status TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open','answered','in_progress','closed')),
+  expected_by DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS grievances_citizen_idx ON grievances (citizen_id, id DESC);

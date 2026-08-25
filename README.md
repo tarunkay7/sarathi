@@ -28,7 +28,9 @@ A prototype reimagining India's driving-licence portal (Sarathi Parivahan Sewa) 
    DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
    OPENAI_API_KEY=sk-...
    ```
-   Get these from a teammate over a private channel — do not paste them in a commit, issue, or PR. `OPENAI_API_KEY` is only needed for the "Renew by talking to Setu" voice assistant; the rest of the app works without it.
+   Get these from a teammate over a private channel — do not paste them in a commit, issue, or PR.
+
+   `OPENAI_API_KEY` powers two features: the "Renew by talking to Setu" voice assistant and grievance triage. Without it the voice assistant is unavailable, but grievances still file — they fall back to keyword triage, and the UI says which one sorted the ticket. `OPENAI_TRIAGE_MODEL` optionally overrides the triage model (default `gpt-4o-mini`).
 
 3. Apply the schema and seed the four licence services:
    ```
@@ -54,13 +56,14 @@ public/
   styles.css         all styles
   app.js             client-side logic (screens, API calls, voice assistant)
 server.js            Express app entrypoint
-routes/              API routes (auth, applications, payments, realtime voice sessions)
+routes/              API routes (auth, applications, payments, grievances, realtime voice sessions)
 db/
   schema.sql         table definitions
   migrate.js         applies schema.sql to DATABASE_URL
-  seed.js            seeds the 4 licence services (renew/new/duplicate/address)
+  seed.js            seeds the 4 licence services (renew/new/duplicate/dl)
   pool.js            Postgres connection pool
   README.md          schema documentation — tables, columns, relationships
+GRIEVANCES.md        the grievance feature — what can be raised, how it is triaged
 render.yaml           Render deployment blueprint
 ```
 

@@ -115,6 +115,10 @@
   .field .req{color:var(--red);}
   .field input{width:100%;height:46px;padding:0 14px;border:1px solid var(--rule);border-radius:var(--radius-sm);font-size:15px;background:var(--surface);color:var(--ink);font-family:var(--font-body);}
   .field input:focus{border-color:var(--indigo);}
+  .field textarea,.field select{width:100%;padding:11px 14px;border:1px solid var(--rule);border-radius:var(--radius-sm);font-size:15px;background:var(--surface);color:var(--ink);font-family:var(--font-body);}
+  .field textarea{resize:vertical;min-height:92px;line-height:1.5;}
+  .field select{height:46px;padding:0 14px;}
+  .field textarea:focus,.field select:focus{border-color:var(--indigo);}
   .hint{font-size:13.5px;font-weight:600;color:var(--ink-soft);margin-top:6px;}
   .error-text{font-size:12.5px;color:var(--red);margin-top:6px;font-weight:600;}
   .error-text[hidden]{display:none;}
@@ -563,3 +567,35 @@
     .receipt-print-footer strong{display:block;color:#344054;margin-bottom:1mm;}
     .receipt-print-footer span{display:block;}
   }
+
+  /* Grievance panel. The reply is the point of the card, so it gets the body
+     weight and the routing detail sits under it as metadata. */
+  .grv{border:1px solid var(--rule);border-left:4px solid var(--indigo);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;background:var(--surface);}
+  .grv.urgent{border-left-color:var(--red);}
+  .grv-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;}
+  .grv-code{font-size:12.5px;font-weight:700;color:var(--indigo);font-variant-numeric:tabular-nums;}
+  .grv-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .grv-tag{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--surface-sunk);color:var(--ink-faint);letter-spacing:.01em;}
+  .grv-tag.urgent{background:var(--red-soft);color:var(--red);}
+  .grv-reply{font-size:13.5px;line-height:1.55;color:var(--ink);margin:0 0 8px;}
+  .grv-foot{font-size:11.5px;font-weight:600;color:var(--ink-faint);margin:0;line-height:1.45;}
+  /* Wide rows in the main column, built on .rec so they sit under the
+     application cards as one continuous dashboard. */
+  .grv-rec{border-left-color:var(--indigo);}
+  .grv-rec.urgent{border-left-color:var(--red);}
+  .grv-rec:last-child{margin-bottom:0;}
+  .grv-quote{margin:14px 16px 0;padding:0 0 0 12px;border-left:2px solid var(--rule);font-size:13.5px;font-style:italic;
+    color:var(--ink-soft);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .grv-answer{margin:11px 16px 0;font-size:14px;line-height:1.55;color:var(--ink);}
+  .grv-attrib{margin:0;padding:2px 16px 14px;font-size:11px;font-weight:600;color:var(--ink-faint);}
+
+  /* The outcome card answers what was just submitted, so it leads with what
+     happened and is lifted off the panel rather than sitting in the list. */
+  .grv-outcome{border-left-width:1px;box-shadow:0 6px 18px rgba(19,27,51,.09);padding-top:0;overflow:hidden;}
+  .grv-outcome.urgent{border-left-width:4px;}
+  .grv-headline{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:0 -14px 11px;padding:9px 14px;}
+  .grv-headline svg{flex:0 0 auto;}
+  .grv-headline.ok{background:var(--green-soft);color:var(--green);}
+  .grv-headline.routed{background:var(--indigo-soft);color:var(--indigo);}
+  #grievance-result .btn{margin-top:2px;}
+  #grievance-result[hidden],#grievance-form[hidden]{display:none;}

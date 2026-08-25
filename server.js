@@ -8,6 +8,7 @@ const paymentRoutes = require('./routes/payments');
 const realtimeRoutes = require('./routes/realtime');
 const rtoRoutes = require('./routes/rtos');
 const documentRoutes = require('./routes/documents');
+const grievanceRoutes = require('./routes/grievances');
 
 const app = express();
 app.use(express.json());
@@ -23,6 +24,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/realtime', realtimeRoutes);
 app.use('/api/rtos', rtoRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/grievances', grievanceRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
 

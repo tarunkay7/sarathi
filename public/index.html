@@ -242,6 +242,11 @@
             <p class="hint" style="margin:0;">No applications currently in progress.</p>
           </div>
         </div>
+
+        <div class="panel" id="grievance-list-panel" hidden>
+          <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-7a8 8 0 0 1 8-8h2a8 8 0 0 1 8 4Z"/><line x1="10" y1="10" x2="10" y2="13"/><line x1="14" y1="10" x2="14" y2="13"/></svg>Your grievances</span> <span class="sub" id="grievance-count">None</span></div>
+          <div class="panel-body" id="grievance-history"></div>
+        </div>
       </div>
 
       <aside class="dash-side">
@@ -262,6 +267,28 @@
                 <div class="svc-ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6"/><path d="M4.6 16.5 9.4 13.6"/><path d="M19.4 16.5 14.6 13.6"/></svg></div><div class="t">Apply for a driving licence</div>
               </button>
             </div>
+          </div>
+        </div>
+
+        <div class="panel" id="grievance-panel">
+          <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-7a8 8 0 0 1 8-8h2a8 8 0 0 1 8 4Z"/><line x1="10" y1="10" x2="10" y2="13"/><line x1="14" y1="10" x2="14" y2="13"/></svg>Raise a grievance</span></div>
+          <div class="panel-body">
+            <div id="grievance-form">
+              <p class="hint" style="margin-top:0;">Describe the problem in your own words. There is no category to choose and no subject line to write — it is read, sorted and sent to the right desk for you.</p>
+              <div class="field">
+                <label for="grievance-body">What went wrong? <span class="req">*</span></label>
+                <textarea id="grievance-body" rows="4" maxlength="2000" placeholder="For example: I paid for my renewal three weeks ago and there has been no update since. Nobody answers the phone at the office."></textarea>
+              </div>
+              <div class="field" id="grievance-link-field" hidden>
+                <label for="grievance-application">Is it about one application?</label>
+                <select id="grievance-application">
+                  <option value="">Not about a specific application</option>
+                </select>
+              </div>
+              <p class="error-text" id="grievance-error" hidden></p>
+              <button class="btn primary small" data-action="submit-grievance" id="grievance-submit">Submit grievance</button>
+            </div>
+            <div id="grievance-result" hidden></div>
           </div>
         </div>
       </aside>

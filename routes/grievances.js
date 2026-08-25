@@ -1,0 +1,284 @@
+const express = require('express');
+const pool = require('../db/pool');
+const asyncHandler = require('./asyncHandler');
+
+const router = express.Router();
+
+function makeTicketCode() {
+  return 'GRV-2026-' + Math.floor(1000 + Math.random() * 9000);
+}
+
+function requireInteger(value, res) {
+  if (!/^\d+$/.test(String(value))) {
+    res.status(400).json({ error: 'Invalid id' });
+    return null;
+  }
+  return Number(value);
+}
+
+// Which desk owns which category is a routing rule, not a judgement call, so it
+// stays here rather than being something the model can invent a name for.
+const DESKS = {
+  payment: 'RTO accounts desk',
+  delay: 'RTO application desk',
+  appointment: 'RTO appointment desk',
+  document: 'RTO verification desk',
+  licence_error: 'RTO records desk',
+  staff_conduct: 'RTO grievance officer',
+  other: 'RTO help desk',
+};
+const CATEGORIES = Object.keys(DESKS);
+
+// Working days the citizen is promised a reply in. Deliberately short for the
+// serious ones — the point of triaging at all is that severity changes the SLA.
+const SLA_DAYS = { high: 2, normal: 5, low: 7 };
+
+const CATEGORY_LABELS = {
+  payment: 'Payment',
+  delay: 'Delay',
+  appointment: 'Appointment',
+  document: 'Documents',
+  licence_error: 'Error on licence',
+  staff_conduct: 'Staff conduct',
+  other: 'General',
+};
+
+const TRIAGE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['category', 'severity', 'summary', 'citizen_reply', 'answered_immediately'],
+  properties: {
+    category: { type: 'string', enum: CATEGORIES },
+    severity: {
+      type: 'string',
+      enum: ['low', 'normal', 'high'],
+      description: 'high only for money lost, a wrong licence already issued, or a missed legal deadline.',
+    },
+    summary: {
+      type: 'string',
+      description: 'One neutral sentence an RTO officer can act on, naming the application if there is one.',
+    },
+    citizen_reply: {
+      type: 'string',
+      description: 'Two or three short warm sentences in plain English, addressed to the citizen, saying what happens next. If the question is answerable from the applications given, answer it concretely with the real reference code and date.',
+    },
+    answered_immediately: {
+      type: 'boolean',
+      description: 'True only when the applications given already fully answer the complaint and no officer needs to act.',
+    },
+  },
+};
+
+// Everything the model is allowed to treat as fact. Built from the citizen's own
+// rows so a status answer quotes a real reference code and date rather than a
+// plausible-looking one.
+function buildFactSheet(citizen, applications) {
+  if (!applications.length) {
+    return `${citizen.name} has no applications on record. Their RTO is ${citizen.rto}, ${citizen.state}.`;
+  }
+  const lines = applications.map((a) => {
+    const parts = [
+      `${a.reference_code}: ${a.service_title}`,
+      `status ${a.status}`,
+      `fee ₹${Math.round(a.fee_cents / 100)}`,
+      `submitted ${new Date(a.created_at).toISOString().slice(0, 10)}`,
+      a.expected_by ? `expected by ${new Date(a.expected_by).toISOString().slice(0, 10)}` : null,
+      a.escalated ? 'ALREADY auto-escalated to a supervisor' : null,
+      a.payment_status ? `payment ${a.payment_status}` : 'no payment recorded',
+    ];
+    return '- ' + parts.filter(Boolean).join(', ');
+  });
+  return [
+    `Citizen: ${citizen.name}, RTO ${citizen.rto}, ${citizen.state}. Today is ${new Date().toISOString().slice(0, 10)}.`,
+    'Their applications:',
+    ...lines,
+  ].join('\n');
+}
+
+const SYSTEM_PROMPT = [
+  'You triage grievances for an Indian RTO driving-licence service. You are given a citizen\'s complaint in their own words and the full set of facts about their applications.',
+  'Classify it, then write a reply the citizen will read.',
+  'Use ONLY the facts provided. Never invent a reference code, date, amount, officer name or office. If a fact is not listed, do not state it.',
+  'If their complaint is a question that the facts already answer — most often "where is my application" or "when will it be ready" — set answered_immediately to true and answer it directly, quoting the real reference code and expected date. Do not promise an officer will follow up on something already answered.',
+  'If it needs a human, set answered_immediately to false and tell them plainly that it has been logged and routed, without inventing a timeline.',
+  'Severity decides how fast a human must reply, so apply it strictly. Use high whenever money has left the citizen\'s account and is unaccounted for, a bribe or extortion is described, a licence has already been issued with wrong details, or a legal deadline has been missed. Use low only for general questions where nothing is at stake. Everything else is normal.',
+  'Never claim to have contacted a real government system, and never ask for an Aadhaar number, OTP, card or bank detail.',
+  'Write at a sixth-standard reading level. No jargon, no apologising twice, no filler.',
+].join(' ');
+
+// Keyword triage, used when there is no API key or the model call fails. Coarse
+// on purpose: it exists so the grievance is still accepted and routed rather
+// than lost, not to be a second implementation of the model.
+function triageWithRules(body) {
+  const text = String(body).toLowerCase();
+  const match = [
+    ['payment', /paid|payment|money|refund|debit|charge|twice|deduct|upi/],
+    ['delay', /delay|late|still waiting|not received|no update|pending|weeks|month/],
+    ['appointment', /appointment|slot|booking|reschedul|date|test/],
+    ['document', /document|upload|form|certificate|photo|proof/],
+    ['licence_error', /wrong|spelling|incorrect|mistake|name|address|error/],
+    ['staff_conduct', /rude|behaviour|behavior|bribe|agent|staff|officer|refused/],
+  ].find(([, re]) => re.test(text));
+  const category = match ? match[0] : 'other';
+  return {
+    category,
+    severity: /bribe|twice|refund|fraud/.test(text) ? 'high' : 'normal',
+    summary: `Citizen-reported ${CATEGORY_LABELS[category].toLowerCase()} issue awaiting officer review.`,
+    citizen_reply: 'Your grievance has been logged and routed to the right desk. You will get an SMS when an officer picks it up, and you can see its status on your dashboard at any time.',
+    answered_immediately: false,
+  };
+}
+
+async function triageWithOpenAI(body, factSheet) {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_TRIAGE_MODEL || 'gpt-4o-mini',
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `FACTS\n${factSheet}\n\nCOMPLAINT\n${body}` },
+      ],
+      // strict json_schema means the reply always parses and the category is
+      // always one the router knows, so there is no shape to defend against.
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'grievance_triage', strict: true, schema: TRIAGE_SCHEMA },
+      },
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error ? data.error.message : `Triage failed (HTTP ${res.status})`);
+  }
+  const content = data.choices && data.choices[0] && data.choices[0].message.content;
+  if (!content) throw new Error('Triage returned no content');
+  return JSON.parse(content);
+}
+
+function addWorkingDays(days) {
+  const d = new Date();
+  let added = 0;
+  while (added < days) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) added++;
+  }
+  return d;
+}
+
+router.post('/', asyncHandler(async (req, res) => {
+  const { citizenId, applicationId, body } = req.body || {};
+  const citizen = requireInteger(citizenId, res);
+  if (citizen === null) return;
+
+  const text = String(body || '').trim();
+  if (text.length < 10) {
+    return res.status(400).json({ error: 'Please describe the problem in a sentence or two so it can be routed correctly.' });
+  }
+  if (text.length > 2000) {
+    return res.status(400).json({ error: 'Please keep the description under 2000 characters.' });
+  }
+
+  // Optional, and must belong to this citizen — otherwise a ticket could be
+  // attached to someone else's application.
+  let linkedApplication = null;
+  let linkedReference = null;
+  if (applicationId !== undefined && applicationId !== null && applicationId !== '') {
+    const linked = requireInteger(applicationId, res);
+    if (linked === null) return;
+    const owned = await pool.query(
+      'SELECT id, reference_code FROM applications WHERE id = $1 AND citizen_id = $2',
+      [linked, citizen]
+    );
+    if (!owned.rows[0]) return res.status(400).json({ error: 'That application is not on this account.' });
+    linkedApplication = linked;
+    linkedReference = owned.rows[0].reference_code;
+  }
+
+  const citizenResult = await pool.query('SELECT * FROM citizens WHERE id = $1', [citizen]);
+  if (!citizenResult.rows[0]) return res.status(404).json({ error: 'Not found' });
+
+  const appsResult = await pool.query(
+    `SELECT a.id, a.reference_code, a.status, a.expected_by, a.escalated, a.created_at,
+            s.title AS service_title, s.fee_cents,
+            (SELECT p.status FROM payments p
+              WHERE p.application_id = a.id AND p.status IN ('reconciling','paid')
+              LIMIT 1) AS payment_status
+     FROM applications a
+     JOIN services s ON s.key = a.service_key
+     WHERE a.citizen_id = $1
+     ORDER BY a.id DESC`,
+    [citizen]
+  );
+
+  const factSheet = buildFactSheet(citizenResult.rows[0], appsResult.rows);
+
+  let triage;
+  let triagedBy = 'openai';
+  if (!process.env.OPENAI_API_KEY) {
+    triage = triageWithRules(text);
+    triagedBy = 'rules';
+  } else {
+    try {
+      triage = await triageWithOpenAI(text, factSheet);
+    } catch (err) {
+      // A grievance must never be lost because a third party was unavailable.
+      console.warn('[grievance] OpenAI triage failed, using keyword fallback:', err.message);
+      triage = triageWithRules(text);
+      triagedBy = 'rules';
+    }
+  }
+
+  const severity = SLA_DAYS[triage.severity] ? triage.severity : 'normal';
+  const category = DESKS[triage.category] ? triage.category : 'other';
+  const answered = Boolean(triage.answered_immediately);
+
+  const inserted = await pool.query(
+    `INSERT INTO grievances
+       (ticket_code, citizen_id, application_id, body, category, severity, summary,
+        route_to, citizen_reply, answered_immediately, triaged_by, status, expected_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+    [
+      makeTicketCode(), citizen, linkedApplication, text, category, severity,
+      triage.summary, DESKS[category], triage.citizen_reply, answered, triagedBy,
+      answered ? 'answered' : 'open',
+      answered ? null : addWorkingDays(SLA_DAYS[severity]),
+    ]
+  );
+
+  const grievance = inserted.rows[0];
+  if (linkedApplication) {
+    await pool.query(
+      `INSERT INTO timeline_events (application_id, label) VALUES ($1, $2)`,
+      [linkedApplication, `Grievance ${grievance.ticket_code} raised (${CATEGORY_LABELS[category]})`]
+    );
+  }
+
+  // reference_code matches what the list endpoint joins in, so the outcome card
+  // and the history row render from the same shape.
+  res.status(201).json({
+    grievance: { ...grievance, category_label: CATEGORY_LABELS[category], reference_code: linkedReference },
+  });
+}));
+
+router.get('/citizen/:id', asyncHandler(async (req, res) => {
+  const id = requireInteger(req.params.id, res);
+  if (id === null) return;
+  const result = await pool.query(
+    `SELECT g.*, a.reference_code
+     FROM grievances g
+     LEFT JOIN applications a ON a.id = g.application_id
+     WHERE g.citizen_id = $1 ORDER BY g.id DESC`,
+    [id]
+  );
+  res.json({
+    grievances: result.rows.map((g) => ({ ...g, category_label: CATEGORY_LABELS[g.category] || 'General' })),
+  });
+}));
+
+module.exports = router;

@@ -637,6 +637,21 @@ async function openDashboard(){
   document.getElementById('doc-holder').textContent = session.citizen.name;
 
   var data = await api('/api/applications/citizen/' + session.citizen.id);
+
+  // Offered only when there is something to attach it to; a lone "not about a
+  // specific application" dropdown is just a control the citizen has to read
+  // and dismiss. Populated before the early return below so a citizen with no
+  // applications can still raise a grievance.
+  var linkField = document.getElementById('grievance-link-field');
+  var linkSelect = document.getElementById('grievance-application');
+  linkSelect.innerHTML = '<option value="">Not about a specific application</option>' +
+    data.applications.map(function(app){
+      return '<option value="' + app.id + '">' + escapeHtml(app.reference_code + ' · ' + app.service_title) + '</option>';
+    }).join('');
+  linkField.hidden = data.applications.length === 0;
+  resetGrievanceForm();
+  await loadGrievances();
+
   var container = document.getElementById('active-applications');
   if(data.applications.length === 0){
     document.getElementById('app-count').textContent = 'None';
@@ -670,6 +685,158 @@ async function openDashboard(){
       '<div class="rec-actions"><button class="btn ghost small" data-action="goto-track" data-app-id="' + app.id + '" data-reference="' + app.reference_code + '" data-service-key="' + app.service_key + '" data-service-title="' + app.service_title + '" data-fee-cents="' + app.fee_cents + '" data-requires-slot="' + app.requires_slot + '" data-expected-days="' + app.expected_days + '" data-form-number="' + app.form_number + '">View status →</button></div>' +
     '</div>';
   }).join('');
+}
+
+var GRIEVANCE_STATUS_META = {
+  answered: { label: 'Answered', chip: 'ok' },
+  open: { label: 'With an officer', chip: 'warn' },
+  in_progress: { label: 'In progress', chip: 'warn' },
+  closed: { label: 'Closed', chip: 'info' },
+};
+
+function escapeHtml(text){
+  return String(text == null ? '' : text)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+var GRV_TICK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>';
+var GRV_ROUTE = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h13"/><path d="M13 7l5 5-5 5"/></svg>';
+
+// The compact card shown in the sidebar directly under the form, answering what
+// was just submitted. The citizen's own words and the model's reply both land in
+// innerHTML, so everything rendered here is escaped.
+function grievanceOutcome(g){
+  return '<div class="grv' + (g.severity === 'high' ? ' urgent' : '') + '">' +
+    '<div class="grv-headline ' + (g.answered_immediately ? 'ok' : 'routed') + '">' +
+      (g.answered_immediately ? GRV_TICK + 'Answered straight away' : GRV_ROUTE + 'Logged and routed') +
+    '</div>' +
+    '<div class="grv-top">' +
+      '<span class="grv-code">' + escapeHtml(g.ticket_code) + '</span>' +
+    '</div>' +
+    '<div class="grv-tags">' +
+      '<span class="grv-tag">' + escapeHtml(g.category_label) + '</span>' +
+      (g.severity === 'high' ? '<span class="grv-tag urgent">Urgent</span>' : '') +
+      (g.reference_code ? '<span class="grv-tag">' + escapeHtml(g.reference_code) + '</span>' : '') +
+    '</div>' +
+    '<p class="grv-reply">' + escapeHtml(g.citizen_reply) + '</p>' +
+    '<p class="grv-foot">' +
+      (g.answered_immediately
+        ? 'Answered from your application record — nothing is queued.'
+        : 'Routed to the ' + escapeHtml(g.route_to) + (g.expected_by ? ' · reply due ' + formatDate(g.expected_by) : '')) +
+    '</p>' +
+  '</div>';
+}
+
+var GRV_ROW_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-7a8 8 0 0 1 8-8h2a8 8 0 0 1 8 4Z"/><line x1="10" y1="10" x2="10" y2="13"/><line x1="14" y1="10" x2="14" y2="13"/></svg>';
+
+function triageLabel(g){
+  return g.triaged_by === 'openai' ? 'AI triage' : 'keyword fallback';
+}
+
+// The wide card for the main column. Deliberately built from the same .rec
+// structure as the application cards above it so the two lists read as one
+// dashboard rather than two unrelated widgets.
+function grievanceRow(g){
+  var meta = GRIEVANCE_STATUS_META[g.status] || { label: g.status, chip: 'info' };
+  var subtitle = escapeHtml(g.category_label) + (g.reference_code ? ' · ' + escapeHtml(g.reference_code) : '');
+  var facts = g.answered_immediately
+    ? [['Outcome', 'Answered on the spot'], ['Raised', formatDate(g.created_at)]]
+    : [['Routed to', g.route_to || '—'], ['Reply due', g.expected_by ? formatDate(g.expected_by) : '—']];
+
+  return '<div class="rec grv-rec' + (g.severity === 'high' ? ' urgent' : '') + '">' +
+    '<div class="rec-top">' +
+      '<div class="rec-top-left">' +
+        '<span class="rec-ico">' + GRV_ROW_ICON + '</span>' +
+        '<div><div class="rec-id">' + escapeHtml(g.ticket_code) + '</div>' +
+        '<div class="rec-service">' + subtitle + '</div></div>' +
+      '</div>' +
+      '<span class="status-chip ' + meta.chip + '">' + meta.label + '</span>' +
+    '</div>' +
+    (g.severity === 'high' ? '<div class="rec-warn">⚠ Urgent — flagged for a faster reply</div>' : '') +
+    // What the citizen actually wrote. The panel never showed it back to them
+    // before, so a filed grievance was something they had to remember.
+    '<blockquote class="grv-quote">' + escapeHtml(g.body) + '</blockquote>' +
+    '<p class="grv-answer">' + escapeHtml(g.citizen_reply) + '</p>' +
+    '<div class="rec-facts">' +
+      facts.map(function(f){
+        return '<div class="rec-fact"><span class="k">' + f[0] + '</span><span class="v">' + escapeHtml(f[1]) + '</span></div>';
+      }).join('') +
+    '</div>' +
+    '<p class="grv-attrib">Sorted by ' + triageLabel(g) + '</p>' +
+  '</div>';
+}
+
+// excludeId is the ticket currently shown in the sidebar as the outcome of what
+// was just submitted — listing it here too is the same grievance twice.
+function renderGrievanceHistory(list, excludeId){
+  var host = document.getElementById('grievance-history');
+  var panel = document.getElementById('grievance-list-panel');
+  var rest = (list || []).filter(function(g){ return g.id !== excludeId; });
+
+  // Hidden outright when empty: an empty panel is a row of chrome telling the
+  // citizen nothing, and this one sits directly under their applications.
+  panel.hidden = rest.length === 0;
+  document.getElementById('grievance-count').textContent =
+    rest.length === 1 ? '1 raised' : rest.length + ' raised';
+  host.innerHTML = rest.map(grievanceRow).join('');
+}
+
+async function loadGrievances(excludeId){
+  var data = await api('/api/grievances/citizen/' + session.citizen.id);
+  session.grievances = data.grievances;
+  renderGrievanceHistory(data.grievances, excludeId);
+}
+
+async function submitGrievance(btn){
+  var field = document.getElementById('grievance-body');
+  var errorEl = document.getElementById('grievance-error');
+  var text = field.value.trim();
+  errorEl.hidden = true;
+
+  if(text.length < 10){
+    errorEl.textContent = 'Please describe the problem in a sentence or two so it reaches the right desk.';
+    errorEl.hidden = false;
+    field.focus();
+    return;
+  }
+
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Reading your complaint…';
+  try{
+    var select = document.getElementById('grievance-application');
+    var data = await api('/api/grievances', { method:'POST', body:{
+      citizenId: session.citizen.id,
+      applicationId: select && select.value ? Number(select.value) : null,
+      body: text
+    }});
+
+    // The form is replaced by the outcome rather than clearing to an empty box,
+    // so it is obvious the complaint was actually read and what became of it.
+    document.getElementById('grievance-form').hidden = true;
+    var result = document.getElementById('grievance-result');
+    result.hidden = false;
+    result.innerHTML = grievanceOutcome(data.grievance) +
+      '<button class="btn ghost small" data-action="grievance-again">Raise another</button>';
+    if(select) select.value = '';
+    field.value = '';
+    await loadGrievances(data.grievance.id);
+  } catch(err){
+    errorEl.textContent = err.message;
+    errorEl.hidden = false;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+// focusField only when the citizen asked for the form back — on a plain
+// dashboard load, moving focus here would yank the page down to the sidebar.
+function resetGrievanceForm(focusField){
+  document.getElementById('grievance-result').hidden = true;
+  document.getElementById('grievance-form').hidden = false;
+  document.getElementById('grievance-error').hidden = true;
+  if(focusField) document.getElementById('grievance-body').focus();
 }
 
 // Start/end for each bookable window. Kept as an explicit table rather than
@@ -1360,6 +1527,10 @@ async function handleAction(action, el){
       session.citizen = null; session.applicationId = null; session.referenceCode = null; session.service = null; session.application = null;
       showScreen('screen-home');
     }
+    else if(action === 'submit-grievance'){ await submitGrievance(el); }
+    // The outcome card is going away, so the ticket it was holding rejoins the
+    // history rather than disappearing from the panel entirely.
+    else if(action === 'grievance-again'){ resetGrievanceForm(true); renderGrievanceHistory(session.grievances); }
     else if(action === 'escalate-demo'){ await escalateDemo(); }
     else if(action === 'add-calendar'){ downloadIcs(); }
     else if(action === 'print-receipt'){ window.print(); }
