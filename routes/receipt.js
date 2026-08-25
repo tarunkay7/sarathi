@@ -162,7 +162,10 @@ async function loadReceiptData(applicationId) {
 
   const citizenResult = await pool.query('SELECT * FROM citizens WHERE id = $1', [application.citizen_id]);
   const paymentResult = await pool.query(
-    `SELECT * FROM payments WHERE application_id = $1 ORDER BY id DESC LIMIT 1`,
+    // The live payment is the one the receipt is for; a superseded duplicate
+    // attempt must not be what the citizen sees. At most one row can be live.
+    `SELECT * FROM payments WHERE application_id = $1
+     ORDER BY (status IN ('reconciling','paid')) DESC, id DESC LIMIT 1`,
     [applicationId]
   );
 

@@ -413,9 +413,11 @@ function selectedPaymentMethod(){
 
 async function processPayment(method, delayMs, onTick){
   session.lastPaymentMethod = method;
+  // The amount is deliberately not sent: the server reads the fee from the
+  // service so it cannot be talked down by a tampered request. If a charge is
+  // already in flight this returns that one (reused) rather than a second.
   var created = await api('/api/payments', { method:'POST', body:{
     applicationId: session.applicationId,
-    amountCents: session.service.fee_cents,
     method: method
   }});
 

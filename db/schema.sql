@@ -117,3 +117,27 @@ CREATE TABLE IF NOT EXISTS documents (
   -- One current file per kind per application; re-uploading replaces it.
   UNIQUE (application_id, kind)
 );
+
+-- A citizen who retries a payment that the bank is slow to confirm must not be
+-- charged a second time. The UI disables the pay button while a charge is in
+-- flight, but a refresh, the back button, or a dropped connection all defeat
+-- that, so the guarantee is enforced here instead: at most one live payment per
+-- application. 'failed' and 'refund_in_progress' rows sit outside the predicate
+-- so a genuine retry after a real failure is still allowed.
+--
+-- Any duplicates already recorded would block the index, so supersede them
+-- first — keep the settled row if there is one, otherwise the earliest attempt,
+-- and mark the rest failed rather than deleting the audit trail. This is a
+-- no-op once the index exists, because the index prevents new duplicates.
+UPDATE payments SET status = 'failed'
+WHERE status IN ('reconciling','paid')
+  AND id NOT IN (
+    SELECT DISTINCT ON (application_id) id
+    FROM payments
+    WHERE status IN ('reconciling','paid')
+    ORDER BY application_id, (status = 'paid') DESC, id
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS payments_one_live_per_application
+  ON payments (application_id)
+  WHERE status IN ('reconciling','paid');
