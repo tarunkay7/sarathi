@@ -75,7 +75,7 @@
       <p class="i18n-en">One account for every licence service — apply, renew, track, book appointments, and download your e-DL.</p>
       <p class="i18n-hi">एक खाता, हर लाइसेंस सेवा — आवेदन, नवीनीकरण, ट्रैकिंग और डाउनलोड।</p>
       <div class="hero-cta">
-        <button class="btn saffron" data-action="goto-login">Get started</button>
+        <button class="btn saffron" data-action="goto-signup">Get started</button>
         <button class="btn ghost" data-action="goto-login">Login</button>
       </div>
     </div>
@@ -343,6 +343,89 @@
     </div>
   </section>
 
+  <!-- SIGN UP -->
+  <section class="screen" id="screen-signup">
+    <div class="crumb"><a href="#" data-action="goto-home">Home</a> › Create account</div>
+    <h1>Create your Sarathi account</h1>
+    <p class="lead">Fill in your details by linking DigiLocker. We’ll use your Aadhaar to prefill your identity and residential address.</p>
+
+    <div class="panel" id="signup-digilocker-panel">
+      <div class="panel-head"><span class="panel-head-main">1. Verify and link DigiLocker</span><span class="sub">Secure demo</span></div>
+      <div class="panel-body">
+        <div class="field">
+          <label for="signup-mobile-start">Mobile number linked to Aadhaar <span class="req">*</span></label>
+          <input id="signup-mobile-start" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel" value="9000000009" placeholder="Enter 10-digit mobile number">
+          <p class="error-text" id="signup-mobile-start-error" hidden>Enter a valid 10-digit mobile number.</p>
+        </div>
+        <div class="signup-connect-actions">
+          <button class="btn primary" data-action="connect-digilocker" id="digilocker-button">Link DigiLocker</button>
+        </div>
+        <div class="digilocker-trust">
+          <strong>DigiLocker consent</strong>
+          <span>This prototype simulates permission to read your Aadhaar details. No real DigiLocker account is contacted.</span>
+        </div>
+        <div id="digilocker-status" class="banner info" hidden aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="signup-form-panel" hidden>
+      <div class="panel-head"><span class="panel-head-main">2. Review your imported details</span><span class="sub">Prefilled from Aadhaar</span></div>
+      <div class="panel-body">
+        <div class="banner success signup-imported">Aadhaar details imported successfully. Review them before creating your account.</div>
+        <div class="signup-grid">
+          <div class="field signup-wide">
+            <label for="signup-name">Full name <span class="req">*</span></label>
+            <input id="signup-name" type="text" autocomplete="name" placeholder="As shown on your ID">
+          </div>
+          <div class="field">
+            <label for="signup-email">Email address <span class="req">*</span></label>
+            <input id="signup-email" type="email" autocomplete="email" placeholder="name@example.com">
+          </div>
+          <div class="field">
+            <label for="signup-mobile">Mobile number <span class="req">*</span></label>
+            <input id="signup-mobile" type="tel" inputmode="numeric" maxlength="10" autocomplete="tel" placeholder="10-digit number" readonly>
+          </div>
+          <div class="field">
+            <label for="signup-dob">Date of birth <span class="req">*</span></label>
+            <input id="signup-dob" type="date" autocomplete="bday">
+          </div>
+          <div class="field">
+            <label for="signup-pincode">Residential pincode <span class="req">*</span></label>
+            <input id="signup-pincode" type="text" inputmode="numeric" maxlength="6" autocomplete="postal-code" placeholder="6-digit pincode">
+          </div>
+          <div class="field">
+            <label for="signup-rto">RTO <span class="req">*</span></label>
+            <select id="signup-rto">
+              <option value="">Loading available RTOs…</option>
+            </select>
+            <p class="hint">Used only if your pincode is not mapped yet.</p>
+          </div>
+          <div class="field signup-wide">
+            <label for="signup-address">Residential address <span class="req">*</span></label>
+            <textarea id="signup-address" autocomplete="street-address" placeholder="House number, street, locality and city"></textarea>
+          </div>
+          <div class="signup-wide rto-map signup-rto-map" id="signup-rto-map" hidden>
+            <div class="rto-map-frame" id="signup-rto-map-frame"></div>
+            <div class="rto-map-foot">
+              <div class="rto-map-info">
+                <span class="rto-map-name" id="signup-rto-map-name">—</span>
+                <span class="rto-map-hours" id="signup-rto-map-hours" hidden></span>
+              </div>
+              <a class="btn ghost small" id="signup-rto-map-link" href="#" target="_blank" rel="noopener">Get directions ↗</a>
+            </div>
+          </div>
+        </div>
+        <label class="ack" id="signup-consent-wrap">
+          <input id="signup-consent" type="checkbox">
+          <span>I confirm that these details are correct and consent to their use for this service prototype.</span>
+        </label>
+        <p class="error-text" id="signup-error" hidden></p>
+        <button class="btn primary" data-action="register" id="signup-button" style="margin-top:16px;">Create account</button>
+      </div>
+    </div>
+    <p class="signup-login">Already have an account? <a href="#" data-action="goto-login">Log in with mobile OTP</a></p>
+  </section>
+
   <!-- LOGIN -->
   <section class="screen" id="screen-login">
     <div class="crumb"><a href="#" data-action="goto-home">Home</a> › Citizen Login</div>
@@ -355,12 +438,10 @@
       <div class="panel-body">
         <div class="field">
           <label for="mobile-input">Registered mobile number <span class="req">*</span></label>
-          <input id="mobile-input" type="tel" inputmode="numeric" maxlength="10" placeholder="Enter 10-digit mobile number" autocomplete="tel">
+          <input id="mobile-input" type="tel" inputmode="numeric" maxlength="10" value="9000000009" placeholder="Enter 10-digit mobile number" autocomplete="tel">
           <p class="error-text" id="mobile-error" hidden>Please enter a valid 10-digit mobile number.</p>
         </div>
         <button class="btn primary" data-action="send-otp">Generate OTP</button>
-        <button class="btn ghost small" style="margin-top:8px;" data-action="autofill-demo">Autofill demo credentials</button>
-
         <div id="otp-step" hidden style="margin-top:16px;">
           <div class="field">
             <label for="otp-input">Enter OTP sent to <span id="otp-phone-label"></span> <span class="req">*</span></label>

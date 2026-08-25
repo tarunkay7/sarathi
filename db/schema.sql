@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS citizens (
 );
 
 ALTER TABLE citizens ADD COLUMN IF NOT EXISTS vehicle_classes TEXT NOT NULL DEFAULT 'LMV, MCWG';
+ALTER TABLE citizens ADD COLUMN IF NOT EXISTS email TEXT;
 -- What an RTO visit is for, and what to bring, differ per service: a renewal
 -- captures photo/biometrics, a new learner's licence is the computerised test.
 -- These were hardcoded to the renewal case in the UI.

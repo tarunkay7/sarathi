@@ -19,7 +19,7 @@ async function resolveByPincode(pincode) {
 }
 
 router.get('/', asyncHandler(async (req, res) => {
-  const all = await pool.query('SELECT id, name, state, city FROM rtos ORDER BY state, name');
+  const all = await pool.query('SELECT id, name, state, city, map_query, address, hours FROM rtos ORDER BY state, name');
   res.json({ rtos: all.rows });
 }));
 

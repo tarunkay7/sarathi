@@ -119,6 +119,16 @@
   .field textarea{resize:vertical;min-height:92px;line-height:1.5;}
   .field select{height:46px;padding:0 14px;}
   .field textarea:focus,.field select:focus{border-color:var(--indigo);}
+  .signup-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+  .signup-wide{grid-column:1 / -1;}
+  .hint-inline{font-size:12px;color:var(--ink-faint);font-weight:500;}
+  .signup-login{text-align:center;color:var(--ink-soft);font-size:14px;font-weight:600;}
+  .signup-connect-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .digilocker-trust{display:flex;flex-direction:column;gap:2px;margin-top:16px;padding:12px 14px;border:1px solid var(--rule);border-radius:var(--radius-sm);background:var(--surface-sunk);font-size:12.5px;color:var(--ink-soft);}
+  .digilocker-trust strong{color:var(--indigo);font-size:13px;}
+  .signup-imported{margin:0 0 18px;}
+  .field input[readonly]{background:var(--surface-sunk);color:var(--ink-soft);}
+  @media(max-width:560px){.signup-grid{grid-template-columns:1fr;}.signup-wide{grid-column:auto;}}
   .hint{font-size:13.5px;font-weight:600;color:var(--ink-soft);margin-top:6px;}
   .error-text{font-size:12.5px;color:var(--red);margin-top:6px;font-weight:600;}
   .error-text[hidden]{display:none;}
@@ -402,6 +412,7 @@
   .banner.info{background:var(--indigo-soft);color:var(--indigo-deep);border-left:3px solid var(--indigo);}
   .banner.escalate{background:var(--saffron-soft);color:var(--saffron-deep);border-left:3px solid var(--saffron);}
   .banner.note{background:var(--green-soft);color:#1D5A38;border-left:3px solid var(--green);}
+  .banner.success{background:var(--green-soft);color:#1D5A38;border-left:3px solid var(--green);}
   .banner[hidden]{display:none;}
 
 

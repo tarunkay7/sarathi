@@ -583,6 +583,28 @@ function renderRtoMap(){
   wrap.hidden = false;
 }
 
+function renderSignupRtoMap(rto){
+  var wrap = document.getElementById('signup-rto-map');
+  if(!rto){ wrap.hidden = true; return; }
+  var query = rto.map_query || ('RTO ' + rto.name + ', ' + (rto.city || '') + ', ' + rto.state);
+  var encoded = encodeURIComponent(query);
+  var iframe = document.createElement('iframe');
+  iframe.src = 'https://www.google.com/maps?q=' + encoded + '&output=embed';
+  iframe.loading = 'lazy';
+  iframe.referrerPolicy = 'no-referrer-when-downgrade';
+  iframe.allowFullscreen = true;
+  iframe.title = 'Map showing RTO ' + rto.name;
+  var frame = document.getElementById('signup-rto-map-frame');
+  frame.innerHTML = '';
+  frame.appendChild(iframe);
+  document.getElementById('signup-rto-map-name').textContent = 'RTO ' + rto.name + (rto.city ? ', ' + rto.city : '') + ', ' + rto.state;
+  var hours = document.getElementById('signup-rto-map-hours');
+  hours.textContent = rto.hours || '';
+  hours.hidden = !rto.hours;
+  document.getElementById('signup-rto-map-link').href = 'https://www.google.com/maps/search/?api=1&query=' + encoded;
+  wrap.hidden = false;
+}
+
 async function openTrack(){
   var data = await api('/api/applications/' + session.applicationId);
   session.application = data.application;
@@ -1441,9 +1463,70 @@ async function startVoiceRenewal(){
 
 async function handleAction(action, el){
   try{
-    if(action === 'autofill-demo'){
-      document.getElementById('mobile-input').value = '9000000001';
-      document.getElementById('mobile-error').hidden = true;
+    if(action === 'connect-digilocker'){
+      var startMobile = document.getElementById('signup-mobile-start').value.trim();
+      var startMobileError = document.getElementById('signup-mobile-start-error');
+      if(!/^\d{10}$/.test(startMobile)){
+        startMobileError.hidden = false;
+        return;
+      }
+      startMobileError.hidden = true;
+      var digilockerButton = document.getElementById('digilocker-button');
+      var digilockerStatus = document.getElementById('digilocker-status');
+      digilockerButton.disabled = true;
+      digilockerButton.textContent = 'Connecting securely…';
+      digilockerStatus.hidden = false;
+      digilockerStatus.textContent = 'Waiting for DigiLocker consent and importing your Aadhaar details…';
+      await delay(900);
+
+      document.getElementById('signup-name').value = 'Ramesh Kumar';
+      document.getElementById('signup-email').value = 'ramesh.kumar@example.com';
+      document.getElementById('signup-mobile').value = startMobile;
+      document.getElementById('signup-dob').value = '1978-04-12';
+      document.getElementById('signup-pincode').value = '500076';
+      document.getElementById('signup-address').value = 'Plot 12, Habsiguda, Hyderabad, Telangana';
+
+      var resolvedRto = await api('/api/rtos/resolve?pincode=500076');
+      if(resolvedRto.resolved && resolvedRto.rto){
+        document.getElementById('signup-rto').value = String(resolvedRto.rto.id);
+        renderSignupRtoMap(resolvedRto.rto);
+      }
+      digilockerStatus.textContent = 'DigiLocker linked successfully. Your Aadhaar details are ready for review.';
+      digilockerButton.textContent = 'DigiLocker linked';
+      document.getElementById('signup-form-panel').hidden = false;
+      document.getElementById('signup-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    else if(action === 'register'){
+      var signupError = document.getElementById('signup-error');
+      var signupButton = document.getElementById('signup-button');
+      var registration = {
+        name: document.getElementById('signup-name').value.trim(),
+        email: document.getElementById('signup-email').value.trim(),
+        mobile: document.getElementById('signup-mobile').value.trim(),
+        dob: document.getElementById('signup-dob').value,
+        pincode: document.getElementById('signup-pincode').value.trim(),
+        rtoId: document.getElementById('signup-rto').value,
+        address: document.getElementById('signup-address').value.trim()
+      };
+      signupError.hidden = true;
+      document.getElementById('signup-consent-wrap').classList.remove('ack-missing');
+      if(!registration.name || !registration.email || !/^\d{10}$/.test(registration.mobile) || !registration.dob || !/^\d{6}$/.test(registration.pincode) || !registration.address){
+        signupError.textContent = 'Complete all required fields with valid information.';
+        signupError.hidden = false;
+        return;
+      }
+      if(!document.getElementById('signup-consent').checked){
+        document.getElementById('signup-consent-wrap').classList.add('ack-missing');
+        signupError.textContent = 'Please confirm that your details are correct.';
+        signupError.hidden = false;
+        return;
+      }
+      signupButton.disabled = true;
+      signupButton.textContent = 'Creating account…';
+      var registered = await api('/api/auth/register', { method:'POST', body: registration });
+      session.citizen = registered.citizen;
+      localStorage.setItem('setu_citizen', JSON.stringify(registered.citizen));
+      await syncAndShowDashboard();
     }
     else if(action === 'send-otp'){
       var m = document.getElementById('mobile-input');
@@ -1520,6 +1603,28 @@ async function handleAction(action, el){
       await openTrack();
     }
     else if(action === 'goto-dashboard'){ await openDashboard(); showScreen('screen-dashboard'); }
+    else if(action === 'goto-signup'){
+      document.getElementById('signup-button').disabled = false;
+      document.getElementById('signup-button').textContent = 'Create account';
+      document.getElementById('signup-error').hidden = true;
+      var rtoSelect = document.getElementById('signup-rto');
+      if(!rtoSelect.getAttribute('data-loaded')){
+        var rtoData = await api('/api/rtos');
+        session.signupRtos = rtoData.rtos;
+        rtoSelect.innerHTML = '<option value="">Select your RTO</option>' + rtoData.rtos.map(function(rto){
+          return '<option value="' + rto.id + '">' + rto.name + ' — ' + rto.city + ', ' + rto.state + '</option>';
+        }).join('');
+        rtoSelect.setAttribute('data-loaded', 'true');
+      }
+      if(!rtoSelect.getAttribute('data-map-listener')){
+        rtoSelect.addEventListener('change', function(){
+          var selectedRto = (session.signupRtos || []).find(function(rto){ return String(rto.id) === rtoSelect.value; });
+          renderSignupRtoMap(selectedRto || null);
+        });
+        rtoSelect.setAttribute('data-map-listener', 'true');
+      }
+      showScreen('screen-signup');
+    }
     else if(action === 'goto-login'){ showScreen('screen-login'); }
     else if(action === 'goto-home'){ showScreen('screen-home'); }
     else if(action === 'logout'){
@@ -1540,7 +1645,15 @@ async function handleAction(action, el){
     else if(action === 'font-dec'){ fontScale = Math.max(90, fontScale-10); applyFont(); }
     else if(action === 'font-reset'){ fontScale = 100; applyFont(); }
   } catch(err){
-    if(action === 'verify-otp'){ document.getElementById('otp-error').hidden = false; document.getElementById('otp-error').textContent = err.message; }
+    if(action === 'register'){
+      var registerError = document.getElementById('signup-error');
+      registerError.textContent = err.message;
+      registerError.hidden = false;
+      var registerButton = document.getElementById('signup-button');
+      registerButton.disabled = false;
+      registerButton.textContent = 'Create account';
+    }
+    else if(action === 'verify-otp'){ document.getElementById('otp-error').hidden = false; document.getElementById('otp-error').textContent = err.message; }
     else { alert(err.message); }
   }
 }
