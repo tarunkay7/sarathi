@@ -1,6 +1,8 @@
 services:
   - type: web
-    name: sarathi
+    # Must match the service that actually exists, otherwise re-syncing this
+    # blueprint creates a second one instead of updating setu-sarathi.
+    name: setu-sarathi
     runtime: node
     plan: free
     buildCommand: npm install && npm run db:migrate && npm run db:seed
