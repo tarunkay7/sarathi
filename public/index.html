@@ -321,6 +321,15 @@
         <div class="signup-connect-actions">
           <button class="btn primary" data-action="connect-digilocker" id="digilocker-button">Link DigiLocker</button>
         </div>
+        <div id="signup-aadhaar-otp" class="aadhaar-otp" hidden>
+          <div class="field">
+            <label for="signup-aadhaar-otp-input">Enter Aadhaar OTP sent to <span id="signup-aadhaar-otp-mobile">your mobile</span> <span class="req">*</span></label>
+            <input id="signup-aadhaar-otp-input" type="tel" inputmode="numeric" maxlength="6" value="123456" placeholder="6-digit OTP">
+            <p class="hint">Demo OTP: <strong>123456</strong></p>
+            <p class="error-text" id="signup-aadhaar-otp-error" hidden>Incorrect OTP. For this demo use 123456.</p>
+          </div>
+          <button class="btn primary" data-action="verify-digilocker-otp" id="verify-digilocker-otp-button">Verify OTP</button>
+        </div>
         <div class="digilocker-trust">
           <strong>DigiLocker consent</strong>
           <span>This prototype simulates permission to read your Aadhaar details. No real DigiLocker account is contacted.</span>

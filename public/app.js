@@ -1038,17 +1038,36 @@ async function handleAction(action, el){
         return;
       }
       startMobileError.hidden = true;
+      session.signupMobile = startMobile;
       var digilockerButton = document.getElementById('digilocker-button');
       var digilockerStatus = document.getElementById('digilocker-status');
-      digilockerButton.disabled = true;
-      digilockerButton.textContent = 'Connecting securely…';
+      digilockerButton.hidden = true;
       digilockerStatus.hidden = false;
-      digilockerStatus.textContent = 'Waiting for DigiLocker consent and importing your Aadhaar details…';
-      await delay(900);
+      digilockerStatus.textContent = 'OTP sent successfully to +91 ' + startMobile + '.';
+      document.getElementById('signup-aadhaar-otp-mobile').textContent = '+91 ' + startMobile;
+      document.getElementById('signup-aadhaar-otp').hidden = false;
+      document.getElementById('signup-aadhaar-otp-input').focus();
+    }
+    else if(action === 'verify-digilocker-otp'){
+      var aadhaarOtp = document.getElementById('signup-aadhaar-otp-input').value.trim();
+      var aadhaarOtpError = document.getElementById('signup-aadhaar-otp-error');
+      if(aadhaarOtp !== '123456'){
+        aadhaarOtpError.hidden = false;
+        return;
+      }
+      aadhaarOtpError.hidden = true;
+      var verifyOtpButton = document.getElementById('verify-digilocker-otp-button');
+      var digilockerStatus = document.getElementById('digilocker-status');
+      verifyOtpButton.disabled = true;
+      verifyOtpButton.textContent = 'Verified';
+      document.getElementById('signup-aadhaar-otp').hidden = true;
+      digilockerStatus.hidden = false;
+      digilockerStatus.innerHTML = '<div class="digilocker-fetching"><span class="fetch-spinner" aria-hidden="true"></span><span><strong>Fetching your details…</strong><br>This may take a few seconds.</span></div>';
+      await delay(5000);
 
       document.getElementById('signup-name').value = 'Ramesh Kumar';
       document.getElementById('signup-email').value = 'ramesh.kumar@example.com';
-      document.getElementById('signup-mobile').value = startMobile;
+      document.getElementById('signup-mobile').value = session.signupMobile;
       document.getElementById('signup-dob').value = '1978-04-12';
       document.getElementById('signup-pincode').value = '500076';
       document.getElementById('signup-address').value = 'Plot 12, Habsiguda, Hyderabad, Telangana';
@@ -1059,7 +1078,6 @@ async function handleAction(action, el){
         renderSignupRtoMap(resolvedRto.rto);
       }
       digilockerStatus.textContent = 'DigiLocker linked successfully. Your Aadhaar details are ready for review.';
-      digilockerButton.textContent = 'DigiLocker linked';
       document.getElementById('signup-form-panel').hidden = false;
       document.getElementById('signup-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -1210,7 +1228,14 @@ async function handleAction(action, el){
     else if(action === 'font-dec'){ fontScale = Math.max(90, fontScale-10); applyFont(); }
     else if(action === 'font-reset'){ fontScale = 100; applyFont(); }
   } catch(err){
-    if(action === 'register'){
+    if(action === 'verify-digilocker-otp'){
+      document.getElementById('digilocker-status').textContent = 'Could not fetch your details. Please try again.';
+      document.getElementById('signup-aadhaar-otp').hidden = false;
+      var retryOtpButton = document.getElementById('verify-digilocker-otp-button');
+      retryOtpButton.disabled = false;
+      retryOtpButton.textContent = 'Verify OTP';
+    }
+    else if(action === 'register'){
       var registerError = document.getElementById('signup-error');
       registerError.textContent = err.message;
       registerError.hidden = false;
