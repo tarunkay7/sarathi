@@ -37,6 +37,9 @@
     color:var(--ink);font-family:var(--font-body);font-size:16px;font-weight:500;line-height:1.6;-webkit-font-smoothing:antialiased;
   }
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+  /* Any rule setting display beats the UA sheet's [hidden], so grid and flex
+     components stayed visible when hidden was set from script. */
+  [hidden]{display:none !important;}
   a{color:var(--indigo);}
   button{font-family:var(--font-body);cursor:pointer;}
   :focus-visible{outline:3px solid var(--saffron);outline-offset:2px;border-radius:2px;}

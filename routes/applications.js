@@ -88,12 +88,19 @@ router.get('/citizen/:citizenId', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
-  const { citizenId, serviceKey, dob } = req.body;
+  const { citizenId, serviceKey, dob, learnerLicenceNumber } = req.body;
   if (requireInteger(citizenId, res) === null) return;
 
   const serviceResult = await pool.query('SELECT * FROM services WHERE key = $1', [serviceKey]);
   const service = serviceResult.rows[0];
   if (!service) return res.status(400).json({ error: 'Unknown service' });
+
+  // The permanent licence is issued against a learner's licence, so the number
+  // is required to start the application at all rather than collected later.
+  const learnerLicence = String(learnerLicenceNumber || '').trim();
+  if (serviceKey === 'dl' && learnerLicence.length < 6) {
+    return res.status(400).json({ error: "Enter the learner's licence number this application is based on." });
+  }
 
   if (dob) {
     await pool.query('UPDATE citizens SET dob = $1 WHERE id = $2', [dob, citizenId]);
@@ -104,9 +111,9 @@ router.post('/', asyncHandler(async (req, res) => {
   expectedBy.setDate(expectedBy.getDate() + service.expected_days);
 
   const inserted = await pool.query(
-    `INSERT INTO applications (reference_code, citizen_id, service_key, status, expected_by)
-     VALUES ($1,$2,$3,'details',$4) RETURNING *`,
-    [referenceCode, citizenId, serviceKey, expectedBy]
+    `INSERT INTO applications (reference_code, citizen_id, service_key, status, expected_by, learner_licence_number)
+     VALUES ($1,$2,$3,'details',$4,$5) RETURNING *`,
+    [referenceCode, citizenId, serviceKey, expectedBy, learnerLicence || null]
   );
   const application = inserted.rows[0];
   await pool.query(

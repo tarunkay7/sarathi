@@ -175,3 +175,8 @@ CREATE TABLE IF NOT EXISTS grievances (
 );
 
 CREATE INDEX IF NOT EXISTS grievances_citizen_idx ON grievances (citizen_id, id DESC);
+
+-- A permanent driving licence can only be applied for on the strength of a
+-- learner's licence, so the number is part of the application rather than
+-- something checked once and forgotten. Nullable: no other service needs it.
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS learner_licence_number TEXT;

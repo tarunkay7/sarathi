@@ -384,10 +384,14 @@ function getAvailableSlotDates(){
   return CAL_AVAILABLE_DAYS.map(function(day){ return formatDate(new Date(CAL_YEAR, CAL_MONTH, day).toISOString()); });
 }
 
-async function createApplication(serviceKey){
+async function createApplication(serviceKey, learnerLicenceNumber){
   var data = await api('/api/applications/service/' + serviceKey);
   session.service = data.service;
-  var created = await api('/api/applications', { method:'POST', body:{ citizenId: session.citizen.id, serviceKey: serviceKey } });
+  var created = await api('/api/applications', { method:'POST', body:{
+    citizenId: session.citizen.id,
+    serviceKey: serviceKey,
+    learnerLicenceNumber: learnerLicenceNumber || null
+  }});
   session.applicationId = created.application.id;
   session.referenceCode = created.application.reference_code;
   // Uploads belong to an application, so a fresh one starts with none.
@@ -666,6 +670,16 @@ async function openDashboard(){
   document.getElementById('dashboard-state').textContent = session.citizen.state + ' · ' + session.citizen.rto + ' RTO';
   document.getElementById('doc-dl-id').textContent = session.citizen.dl_number || '—';
   document.getElementById('doc-holder').textContent = session.citizen.name;
+
+  // You cannot renew or replace a licence you do not hold. Rather than offering
+  // services that would dead-end, an account with no licence on record is shown
+  // only the one application it can actually make.
+  var holdsLicence = Boolean(session.citizen.dl_number);
+  document.getElementById('doc-cards').hidden = !holdsLicence;
+  document.getElementById('no-licence-panel').hidden = holdsLicence;
+  document.querySelectorAll('.dash-side .svc-card').forEach(function(card){
+    card.hidden = !holdsLicence && card.getAttribute('data-service') !== 'dl';
+  });
 
   var data = await api('/api/applications/citizen/' + session.citizen.id);
 
@@ -967,6 +981,18 @@ var voiceStream = null;
 var voiceDC = null;
 var voiceCaptionBuffer = '';
 
+// How Setu describes what it is doing, per service. Phrased as a verb so it
+// slots into "who actually DRIVES <name> through ___".
+var VOICE_SERVICE_ACTION = {
+  renew: 'renewing their Indian driving licence',
+  dl: "applying for their permanent Indian driving licence against the learner's licence they already hold",
+  new: "applying for their Indian learner's licence",
+  duplicate: 'replacing their lost or damaged Indian driving licence',
+};
+
+// Services that cannot be started without a learner's licence number typed in.
+function serviceNeedsLearnerLicence(key){ return key === 'dl'; }
+
 var VOICE_INNER_ORDER = ['details', 'documents', 'slot'];
 
 // Caption text streams in over the data channel well ahead of the audio it
@@ -1181,6 +1207,16 @@ function resetVoiceScreen(){
   session.paymentDone = false;
   session.paymentProcessing = false;
   session.uploads = {};
+  session.learnerLicence = null;
+
+  var llPanel = document.getElementById('voice-ll-panel');
+  var llInput = document.getElementById('voice-ll-input');
+  llPanel.hidden = true;
+  llInput.value = '';
+  llInput.readOnly = false;
+  document.getElementById('voice-ll-error').hidden = true;
+  document.getElementById('voice-ll-done').hidden = true;
+  document.getElementById('voice-ll-submit').hidden = false;
   setVoiceCaption('Tap "Start conversation" and allow microphone access to begin.');
   setVoiceUserCaption('');
   setVoiceStatus('Setu is ready');
@@ -1208,7 +1244,51 @@ function revealVoiceIntake(){
   split.classList.remove('pre-start');
   progressPanel.hidden = false;
   progressPanel.classList.add('voice-reveal');
+  // Put the box on screen at the same moment Setu is told to ask for it, so
+  // the citizen is never hunting for something that isn't there yet.
+  document.getElementById('voice-ll-panel').hidden = !serviceNeedsLearnerLicence(session.voiceServiceKey || 'renew');
   renderVoiceProgress('details');
+}
+
+var VOICE_HEADINGS = {
+  renew: 'Renew by talking to Setu',
+  dl: 'Apply for your driving licence by talking to Setu',
+  new: "Apply for your learner's licence by talking to Setu",
+  duplicate: 'Replace your licence by talking to Setu',
+};
+
+function setVoiceHeading(serviceKey){
+  var heading = VOICE_HEADINGS[serviceKey] || 'Talk to Setu';
+  document.getElementById('voice-title').textContent = heading;
+  document.getElementById('voice-crumb').textContent = heading;
+}
+
+// Typed rather than spoken: a licence number read aloud transcribes badly, and
+// getting it wrong here would put a wrong number on the application.
+function submitVoiceLearnerLicence(){
+  var input = document.getElementById('voice-ll-input');
+  var errorEl = document.getElementById('voice-ll-error');
+  var value = input.value.trim().replace(/\s+/g, ' ').toUpperCase();
+  errorEl.hidden = true;
+
+  if(value.length < 6){
+    errorEl.textContent = "Enter the number printed on your learner's licence.";
+    errorEl.hidden = false;
+    input.focus();
+    return;
+  }
+
+  session.learnerLicence = value;
+  input.value = value;
+  input.readOnly = true;
+  document.getElementById('voice-ll-submit').hidden = true;
+  document.getElementById('voice-ll-done').hidden = false;
+
+  if(voiceDC && voiceDC.readyState === 'open'){
+    sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text',
+      text: '[system] The citizen just typed their learner\'s licence number: ' + value + '. Read it back to them once to confirm, then call start_application.' }] } });
+    requestVoiceResponse(250);
+  }
 }
 
 // The model has no way to observe a file picker, so tell it when one lands.
@@ -1265,9 +1345,16 @@ async function handleVoiceToolCall(name, args, callId){
       result = { ok: true };
     }
     else if(name === 'start_application'){
-      await createApplication('renew');
-      result = { ok: true, referenceCode: session.referenceCode };
-      renderVoiceProgress('documents');
+      var key = session.voiceServiceKey || 'renew';
+      // Same guard as confirm_documents: the model is told to wait, and this
+      // makes waiting the only thing that actually works.
+      if(serviceNeedsLearnerLicence(key) && !session.learnerLicence){
+        result = { error: "Not yet — the citizen has not typed their learner's licence number. There is a box on their screen headed \"Learner's licence number\". Ask them to type it and press Submit, then wait for the [system] note before calling this again." };
+      } else {
+        await createApplication(key, session.learnerLicence);
+        result = { ok: true, referenceCode: session.referenceCode };
+        renderVoiceProgress('documents');
+      }
     }
     else if(name === 'confirm_documents'){
       // Spoken confirmation is not enough when a file is genuinely required.
@@ -1386,7 +1473,8 @@ async function startVoiceRenewal(){
   setVoiceStatus('Connecting to Setu');
 
   try{
-    var data = await api('/api/applications/service/renew');
+    var serviceKey = session.voiceServiceKey || 'renew';
+    var data = await api('/api/applications/service/' + serviceKey);
     session.service = data.service;
     var form1a = computeForm1a(session.service, session.citizen);
 
@@ -1395,6 +1483,10 @@ async function startVoiceRenewal(){
       dob: session.citizen.dob,
       vehicleClasses: session.citizen.vehicle_classes,
       rto: session.citizen.state + ' · ' + session.citizen.rto,
+      serviceTitle: session.service.title,
+      serviceAction: VOICE_SERVICE_ACTION[serviceKey] || 'their licence application',
+      prerequisiteNote: session.service.prerequisite_note || null,
+      needsLearnerLicence: serviceKey === 'dl',
       formNumber: session.service.form_number,
       feeRupees: Math.round(session.service.fee_cents / 100),
       requiresSlot: session.service.requires_slot,
@@ -1567,11 +1659,14 @@ async function handleAction(action, el){
     }
     else if(action === 'intake-next'){ intakeSubstep = Math.min(3, intakeSubstep + 1); renderIntakeSubsteps(); }
     else if(action === 'intake-back'){ intakeSubstep = Math.max(1, intakeSubstep - 1); renderIntakeSubsteps(); }
-    else if(action === 'start-voice-renew'){
+    else if(action === 'start-voice-renew' || action === 'start-voice-apply'){
       if(!session.citizen){ showScreen('screen-login'); return; }
+      session.voiceServiceKey = el.getAttribute('data-service') || 'renew';
       resetVoiceScreen();
+      setVoiceHeading(session.voiceServiceKey);
       showScreen('screen-voice-renew');
     }
+    else if(action === 'voice-ll-submit'){ submitVoiceLearnerLicence(); }
     else if(action === 'voice-start'){ await startVoiceRenewal(); }
     else if(action === 'voice-end'){ endVoiceRenewal(); }
     else if(action === 'goto-pay'){
