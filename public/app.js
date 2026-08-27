@@ -1278,17 +1278,24 @@ function submitVoiceLearnerLicence(){
     return;
   }
 
+  // Setu is the only thing that can act on this, so if the channel is not open
+  // the number has gone nowhere. Saying "sent" then would leave the citizen
+  // waiting on an assistant that was never told.
+  if(!voiceDC || voiceDC.readyState !== 'open'){
+    errorEl.textContent = 'Not connected to Setu. Start the conversation, then submit this again.';
+    errorEl.hidden = false;
+    return;
+  }
+
   session.learnerLicence = value;
   input.value = value;
   input.readOnly = true;
   document.getElementById('voice-ll-submit').hidden = true;
   document.getElementById('voice-ll-done').hidden = false;
 
-  if(voiceDC && voiceDC.readyState === 'open'){
-    sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text',
-      text: '[system] The citizen just typed their learner\'s licence number: ' + value + '. Read it back to them once to confirm, then call start_application.' }] } });
-    requestVoiceResponse(250);
-  }
+  sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text',
+    text: '[system] The citizen just typed their learner\'s licence number: ' + value + '. Read it back to them once to confirm, then call start_application.' }] } });
+  requestVoiceResponse(250);
 }
 
 // The model has no way to observe a file picker, so tell it when one lands.
@@ -1337,6 +1344,15 @@ function endVoiceCallFromAssistant(){
   }
 }
 
+// A tool reports on what happened in the database, not on whether the panel
+// redrew. Letting a render throw inside the try below turned a created
+// application into an error the model was told to retry, and it would sit there
+// asking again instead of moving on.
+function safeRenderVoiceProgress(phase){
+  try{ renderVoiceProgress(phase); }
+  catch(err){ console.error('[voice] could not render the ' + phase + ' step:', err); }
+}
+
 async function handleVoiceToolCall(name, args, callId){
   var result = {};
   try{
@@ -1353,20 +1369,20 @@ async function handleVoiceToolCall(name, args, callId){
       } else {
         await createApplication(key, session.learnerLicence);
         result = { ok: true, referenceCode: session.referenceCode };
-        renderVoiceProgress('documents');
+        safeRenderVoiceProgress('documents');
       }
     }
     else if(name === 'confirm_documents'){
       // Spoken confirmation is not enough when a file is genuinely required.
       var pending = missingUploads();
       if(pending.length){
-        renderVoiceProgress('documents');
+        safeRenderVoiceProgress('documents');
         result = { error: 'Not yet — the citizen still has to attach: ' +
           pending.map(function(u){ return u.label; }).join(', ') +
           '. There is an upload box on their screen for each one. Ask them to attach it, then call this again.' };
       } else {
         result = { ok: true };
-        renderVoiceProgress(session.service.requires_slot ? 'slot' : 'payment');
+        safeRenderVoiceProgress(session.service.requires_slot ? 'slot' : 'payment');
       }
     }
     else if(name === 'select_slot'){
@@ -1378,7 +1394,7 @@ async function handleVoiceToolCall(name, args, callId){
       } else {
         session.selectedSlot = { date: args.date, time: args.time };
         result = { ok: true, note: 'Shown on screen as a proposed card. Ask the citizen to confirm before calling confirm_slot.' };
-        renderVoiceProgress('slot');
+        safeRenderVoiceProgress('slot');
       }
     }
     else if(name === 'confirm_slot'){
@@ -1386,24 +1402,24 @@ async function handleVoiceToolCall(name, args, callId){
         result = { error: 'No slot has been picked yet — call select_slot first.' };
       } else {
         result = { ok: true };
-        renderVoiceProgress('payment');
+        safeRenderVoiceProgress('payment');
       }
     }
     else if(name === 'make_payment'){
       session.lastPaymentMethod = args.method;
       session.paymentProcessing = true;
-      renderVoiceProgress('payment');
+      safeRenderVoiceProgress('payment');
       var payment = await processPayment(args.method, 1200);
       session.paymentProcessing = false;
       session.paymentDone = true;
-      renderVoiceProgress('payment');
+      safeRenderVoiceProgress('payment');
       result = { ok: true, status: payment.status };
     }
     else if(name === 'finish'){
       if(!session.applicationId){
         result = { error: 'No application has been started yet — call start_application first.' };
       } else {
-        renderVoiceProgress('track');
+        safeRenderVoiceProgress('track');
         result = { ok: true, referenceCode: session.referenceCode };
       }
     }
@@ -1455,8 +1471,13 @@ function handleVoiceEvent(evt){
         handleVoiceToolCall(item.name, args, item.call_id);
       }
     });
-    if(!hadToolCall && voiceResponseQueued){
-      voiceResponseQueued = false;
+    // Always clear the flag. It used to survive a tool-call turn, so a later
+    // request could be swallowed as "already queued" by a queue nothing drains.
+    var wasQueued = voiceResponseQueued;
+    voiceResponseQueued = false;
+    // After a tool call the handler asks for the next turn itself; asking here
+    // too would start two.
+    if(!hadToolCall && wasQueued){
       requestVoiceResponse(300);
     }
   }
