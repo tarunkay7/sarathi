@@ -245,6 +245,15 @@ function renderIntakeScreen(){
   document.getElementById('intake-dob').textContent = session.citizen.dob ? formatDate(session.citizen.dob) : '—';
   document.getElementById('intake-vehicle-class').textContent = session.citizen.vehicle_classes || '—';
 
+  // Read the stored flag rather than asserting "Verified" for everyone. Accounts
+  // created through signup have not been through eKYC, and claiming otherwise on
+  // the screen where the citizen confirms their details is a claim we cannot back.
+  var kycVerified = session.citizen.aadhaar_kyc_verified;
+  document.getElementById('intake-kyc').textContent = kycVerified ? 'Verified' : 'Not verified';
+  document.getElementById('intake-source-note').textContent = kycVerified
+    ? 'Fetched automatically from DigiLocker & Aadhaar — nothing to type here.'
+    : 'Taken from the details you gave at signup. In a live service this step would run Aadhaar eKYC.';
+
   var list = document.getElementById('intake-checklist');
   list.innerHTML = '';
   service.checklist.forEach(function(item){

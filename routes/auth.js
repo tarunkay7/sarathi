@@ -17,6 +17,11 @@ const DEMO_EKYC = {
   dlNumber: 'TS09 2023 0004821',
 };
 
+// A single reserved number that may re-register, so the signup flow can be
+// demonstrated repeatedly without leaving a trail of throwaway accounts. Every
+// other number gets the normal "account already exists" response.
+const REUSABLE_DEMO_MOBILE = '9000000009';
+
 router.post('/send-otp', (req, res) => {
   const { mobile } = req.body;
   if (!/^\d{10}$/.test(mobile || '')) {
@@ -42,7 +47,7 @@ router.post('/register', asyncHandler(async (req, res) => {
   if (cleanAddress.length < 8) return res.status(400).json({ error: 'Enter your complete residential address.' });
 
   const existing = await pool.query('SELECT id FROM citizens WHERE mobile_number = $1', [cleanMobile]);
-  if (existing.rows[0] && cleanMobile !== '9000000009') {
+  if (existing.rows[0] && cleanMobile !== REUSABLE_DEMO_MOBILE) {
     return res.status(409).json({ error: 'An account already exists for this mobile number. Please log in instead.' });
   }
 
