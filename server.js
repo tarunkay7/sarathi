@@ -5,7 +5,6 @@ const pool = require('./db/pool');
 const authRoutes = require('./routes/auth');
 const applicationRoutes = require('./routes/applications');
 const paymentRoutes = require('./routes/payments');
-const realtimeRoutes = require('./routes/realtime');
 const rtoRoutes = require('./routes/rtos');
 const documentRoutes = require('./routes/documents');
 const grievanceRoutes = require('./routes/grievances');
@@ -21,7 +20,6 @@ app.get('/api/health', async (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/realtime', realtimeRoutes);
 app.use('/api/rtos', rtoRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/grievances', grievanceRoutes);
@@ -56,5 +54,5 @@ process.on('uncaughtException', (err) => {
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`Setu backend listening on http://localhost:${port}`);
+  console.log(`Sarathi listening on http://localhost:${port}`);
 });

@@ -132,5 +132,5 @@ GET /api/grievances/citizen/:id
 
 | Variable | Required | Notes |
 |---|---|---|
-| `OPENAI_API_KEY` | No | Without it, triage falls back to keywords. Also powers the voice assistant. |
+| `OPENAI_API_KEY` | No | Without it, triage falls back to keywords. |
 | `OPENAI_TRIAGE_MODEL` | No | Defaults to `gpt-4o-mini`. |

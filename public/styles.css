@@ -184,7 +184,7 @@
   .svc-grid.compact .svc-card{padding:13px 12px;gap:5px;}
   .svc-grid.compact .svc-ico{width:30px;height:30px;border-radius:9px;}
   .svc-grid.compact .t{font-size:13px;}
-  /* Scoped to .dash-wrap so the voice screen's own .dash-head is untouched. */
+  /* Scoped to .dash-wrap so other screens' headers are untouched. */
   .dash-wrap .dash-head{align-items:center;margin-bottom:20px;}
   .dash-wrap .dash-head h1{margin:0 0 2px;}
   .dash-identity{display:flex;align-items:center;gap:14px;min-width:0;}
@@ -237,7 +237,6 @@
   ul.checklist li .doc-badge{font-size:10px;background:var(--green-soft);color:var(--green);padding:2px 8px;border-radius:99px;margin-left:auto;font-weight:600;white-space:nowrap;align-self:center;}
   ul.checklist li.extra{background:var(--saffron-soft);margin:8px -18px 0;padding:11px 18px;border-radius:var(--radius-sm);border-bottom:none;}
   ul.checklist li.extra .tick{color:var(--saffron-deep);}
-  ul.checklist li .form-link,.vcard .form-link{margin-left:auto;white-space:nowrap;font-weight:700;}
   .confirmation-panel{border-color:var(--green);}
   .confirmation-panel .panel-head{background:var(--green-soft);color:var(--green);}
   .confirmation-list .hint,.payment-notifications .hint{margin:2px 0 0;display:inline-block;}
@@ -277,35 +276,6 @@
   .intake-nav{display:flex;justify-content:space-between;gap:10px;margin-top:16px;}
   .intake-nav .btn{width:auto;}
 
-  .voice-wrap{max-width:1040px;margin:0 auto;padding:26px 20px 48px;}
-  .voice-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:28px;align-items:start;margin-top:8px;}
-  .voice-split.pre-start{grid-template-columns:1fr;}
-  @media(max-width:860px){.voice-split{grid-template-columns:1fr;}.voice-split.pre-start .voice-caption-panel{max-width:640px;}}
-  .voice-progress{display:flex;flex-direction:column;gap:12px;}
-  .voice-progress.voice-reveal{animation:voice-reveal-in .55s cubic-bezier(.22,1,.36,1) both;}
-  @keyframes voice-reveal-in{from{opacity:0;transform:translateX(-22px);}to{opacity:1;transform:none;}}
-  @media(prefers-reduced-motion: reduce){.voice-progress.voice-reveal{animation:none;}}
-  .voice-detail-panel{margin-bottom:0;}
-  .voice-caption-panel{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:24px 26px;height:320px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:14px;min-width:0;transition:max-width .6s cubic-bezier(.22,1,.36,1),margin .6s cubic-bezier(.22,1,.36,1);}
-  /* Match the final right-hand column before progress appears, avoiding a
-     distracting width change while the voice connection is established. */
-  .voice-split.pre-start .voice-caption-panel{max-width:calc((100% - 28px) * .565217);margin:0 auto;}
-  .voice-status{display:flex;align-items:center;justify-content:center;gap:9px;min-height:20px;color:var(--ink-soft);font-size:12px;font-weight:700;letter-spacing:.02em;text-align:center;}
-  .voice-mic-dot{width:12px;height:12px;border-radius:50%;background:var(--rule);flex:0 0 auto;}
-  .voice-mic-dot.live{background:var(--green);box-shadow:0 0 0 6px var(--green-soft);animation:mic-pulse 1.6s ease-in-out infinite;}
-  @keyframes mic-pulse{0%,100%{box-shadow:0 0 0 6px var(--green-soft);}50%{box-shadow:0 0 0 10px var(--green-soft);}}
-  @media(prefers-reduced-motion: reduce){.voice-mic-dot.live{animation:none;}}
-  .voice-caption-viewport{min-height:0;overflow:hidden;display:flex;align-items:center;}
-  .voice-caption{width:100%;max-height:100%;overflow-y:auto;overscroll-behavior:contain;padding:4px 10px 4px 4px;font-family:var(--font-display);font-size:clamp(16px,2vw,20px);font-weight:600;color:var(--indigo);line-height:1.5;text-align:left;scrollbar-width:thin;scrollbar-color:var(--rule) transparent;}
-  .voice-caption::-webkit-scrollbar{width:6px;}
-  .voice-caption::-webkit-scrollbar-thumb{background:var(--rule);border-radius:99px;}
-  .voice-caption-fade{animation:voice-caption-in .4s ease both;}
-  @keyframes voice-caption-in{from{opacity:.25;transform:translateY(3px);}to{opacity:1;transform:none;}}
-  @media(prefers-reduced-motion: reduce){.voice-caption-fade{animation:none;}}
-  .voice-caption-user{min-height:22px;font-size:13.5px;font-weight:600;color:var(--ink-faint);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  @media(max-width:480px){.voice-caption-panel{height:300px;padding:20px;}.voice-caption{font-size:16px;}.voice-caption-user{font-size:12.5px;}}
-  .voice-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:22px;}
-  .voice-controls .btn{width:auto;}
 
   .cal{border:1px solid var(--rule);border-radius:var(--radius-sm);overflow:hidden;margin-top:10px;}
   .cal-head{background:var(--surface-sunk);padding:9px 14px;font-size:13px;font-weight:700;color:var(--indigo);text-align:center;border-bottom:1px solid var(--rule-soft);}
@@ -319,31 +289,6 @@
   .cal-day.selected{background:var(--indigo);color:#fff;}
   .cal-day.selected::after{background:#fff;}
   .cal-times{margin-top:14px;}
-  .vcard-list{display:flex;flex-direction:column;gap:10px;}
-  .vcard{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border:1px solid var(--rule-soft);border-radius:var(--radius-sm);background:var(--surface);animation:vcard-in .5s cubic-bezier(.22,1,.36,1) both;}
-  @keyframes vcard-in{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
-  @media(prefers-reduced-motion: reduce){.vcard{animation:none;}}
-  .vcard-icon{width:26px;height:26px;border-radius:50%;background:var(--surface-sunk);color:var(--ink-faint);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:0 0 auto;margin-top:1px;}
-  .vcard-body{display:flex;flex-direction:column;min-width:0;}
-  .vcard-label{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
-  .vcard-value{font-size:16px;font-weight:700;color:var(--ink);margin-top:2px;}
-  .vcard-sub{font-size:12.5px;color:var(--ink-soft);margin-top:3px;}
-  .vcard.confirmed{border-color:var(--green);background:var(--green-soft);}
-  .vcard.confirmed .vcard-icon{background:var(--green);color:#fff;}
-  .vcard.flag{border-color:var(--saffron-deep);background:var(--saffron-soft);}
-  .vcard.flag .vcard-icon{background:var(--saffron-deep);color:#fff;}
-  .vcard.pending{border-color:var(--rule);}
-  .vcard.awaiting{border-color:var(--indigo);box-shadow:0 0 0 3px var(--indigo-soft);animation:vcard-in .5s cubic-bezier(.22,1,.36,1) both, vcard-pulse 1.8s ease-in-out infinite .5s;}
-  .vcard.awaiting .vcard-icon{background:var(--indigo);color:#fff;}
-  @keyframes vcard-pulse{0%,100%{box-shadow:0 0 0 3px var(--indigo-soft);}50%{box-shadow:0 0 0 6px var(--indigo-soft, rgba(63,61,181,.08));}}
-  @media(prefers-reduced-motion: reduce){.vcard.awaiting{animation:none;}}
-  .vcard.processing{border-color:var(--indigo);background:var(--indigo-soft);}
-  .vcard-icon-spinner{background:transparent;}
-  .vcard-spinner{width:16px;height:16px;border:2.5px solid var(--indigo-soft);border-top-color:var(--indigo);border-radius:50%;animation:spin .8s linear infinite;}
-  @media(prefers-reduced-motion: reduce){.vcard-spinner{animation:none;}}
-  .vcard.just-confirmed{animation:vcard-in .5s cubic-bezier(.22,1,.36,1) both, vcard-pop .45s cubic-bezier(.34,1.56,.64,1) .5s both;}
-  @keyframes vcard-pop{0%{transform:scale(1);}55%{transform:scale(1.045);}100%{transform:scale(1);}}
-  @media(prefers-reduced-motion: reduce){.vcard.just-confirmed{animation:none;}}
   .stage-stepper{display:flex;justify-content:space-between;position:relative;margin:16px 0 8px;}
   /* Inset to the centre of the outer dots: 3 equal stages put those at 1/6 and
      5/6 of the track, so the connector stops under them instead of overshooting. */
@@ -354,7 +299,6 @@
   .stage.active .dot{background:var(--indigo);border-color:var(--indigo);box-shadow:0 0 0 4px var(--indigo-soft);}
   .stage.active{color:var(--indigo);font-weight:700;}
 
-  .rto-map{margin-top:14px;border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden;background:var(--surface);animation:vcard-in .5s cubic-bezier(.22,1,.36,1) both;}
   @media(prefers-reduced-motion: reduce){.rto-map{animation:none;}}
   .rto-map-frame{position:relative;height:220px;background:var(--surface-sunk);}
   .rto-map-frame iframe{display:block;width:100%;height:100%;border:0;}
@@ -367,7 +311,6 @@
   @media print{.rto-map-frame{display:none;}}
 
   .uploader{margin:10px 0 2px 26px;}
-  .vcard .uploader{margin:10px 0 0;}
   .uploader-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
   .uploader-drop{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px dashed var(--rule);border-radius:var(--radius-sm);background:var(--surface-sunk);cursor:pointer;transition:border-color .15s ease,background-color .15s ease,transform .1s ease;}
   .uploader-drop:hover{border-color:var(--indigo);background:var(--indigo-soft);}

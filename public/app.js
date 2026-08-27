@@ -76,8 +76,7 @@ async function uploadDocument(kind, file){
   return data.document;
 }
 
-// Single source of truth for what this service actually needs uploaded, so the
-// manual form and the voice flow can never disagree about it.
+// Single source of truth for what this service actually needs uploaded.
 function requiredUploads(service, citizen){
   var out = (service.checklist || []).filter(function(item){ return item.upload; }).map(function(item){
     return { kind: item.upload, label: item.label, accept: 'image/png,image/jpeg' };
@@ -248,6 +247,16 @@ function renderIntakeScreen(){
   // Read the stored flag rather than asserting "Verified" for everyone. Accounts
   // created through signup have not been through eKYC, and claiming otherwise on
   // the screen where the citizen confirms their details is a claim we cannot back.
+  var needsLl = serviceNeedsLearnerLicence(session.intakeServiceKey);
+  var llField = document.getElementById('intake-ll-field');
+  var llInput = document.getElementById('intake-ll-input');
+  llField.hidden = !needsLl;
+  if(needsLl && !session.applicationId){
+    llInput.value = '';
+    llInput.readOnly = false;
+    document.getElementById('intake-ll-error').hidden = true;
+  }
+
   var kycVerified = session.citizen.aadhaar_kyc_verified;
   document.getElementById('intake-kyc').textContent = kycVerified ? 'Verified' : 'Not verified';
   document.getElementById('intake-source-note').textContent = kycVerified
@@ -399,10 +408,53 @@ async function createApplication(serviceKey, learnerLicenceNumber){
   return created.application;
 }
 
+// Services that cannot be started without a learner's licence number.
+function serviceNeedsLearnerLicence(key){ return key === 'dl'; }
+
 async function startIntake(serviceKey){
-  await createApplication(serviceKey);
+  // The permanent licence needs a number the citizen has to type, and the
+  // server will not create the application without it — so for that service the
+  // row is created when they confirm step 1, not when they pick the card.
+  if(serviceNeedsLearnerLicence(serviceKey)){
+    var data = await api('/api/applications/service/' + serviceKey);
+    session.service = data.service;
+    session.applicationId = null;
+    session.referenceCode = null;
+    session.uploads = {};
+  } else {
+    await createApplication(serviceKey);
+  }
+  session.intakeServiceKey = serviceKey;
   renderIntakeScreen();
   showScreen('screen-intake');
+}
+
+// Returns false when step 1 cannot be left yet.
+async function completeIntakeDetails(){
+  if(!serviceNeedsLearnerLicence(session.intakeServiceKey) || session.applicationId){ return true; }
+
+  var input = document.getElementById('intake-ll-input');
+  var errorEl = document.getElementById('intake-ll-error');
+  var value = input.value.trim().replace(/\s+/g, ' ').toUpperCase();
+  errorEl.hidden = true;
+
+  if(value.length < 6){
+    errorEl.textContent = "Enter the number printed on your learner's licence.";
+    errorEl.hidden = false;
+    input.focus();
+    return false;
+  }
+
+  try{
+    await createApplication(session.intakeServiceKey, value);
+    input.value = value;
+    input.readOnly = true;
+    return true;
+  } catch(err){
+    errorEl.textContent = err.message;
+    errorEl.hidden = false;
+    return false;
+  }
 }
 
 function renderPayScreen(){
@@ -976,613 +1028,6 @@ function downloadIcs(){
 var fontScale = 100;
 function applyFont(){ document.documentElement.style.fontSize = fontScale + '%'; }
 
-var voicePC = null;
-var voiceStream = null;
-var voiceDC = null;
-var voiceCaptionBuffer = '';
-
-// How Setu describes what it is doing, per service. Phrased as a verb so it
-// slots into "who actually DRIVES <name> through ___".
-var VOICE_SERVICE_ACTION = {
-  renew: 'renewing their Indian driving licence',
-  dl: "applying for their permanent Indian driving licence against the learner's licence they already hold",
-  new: "applying for their Indian learner's licence",
-  duplicate: 'replacing their lost or damaged Indian driving licence',
-};
-
-// Services that cannot be started without a learner's licence number typed in.
-function serviceNeedsLearnerLicence(key){ return key === 'dl'; }
-
-var VOICE_INNER_ORDER = ['details', 'documents', 'slot'];
-
-// Caption text streams in over the data channel well ahead of the audio it
-// describes (text deltas arrive as JSON; audio arrives as a jittered RTP
-// track), so we pace the reveal to roughly speaking speed instead of
-// dumping the whole buffer the instant it lands.
-var VOICE_CAPTION_CPS = 15;
-var voiceCaptionRevealed = '';
-var voiceCaptionRevealTimer = null;
-
-// Response state machine: guards against two responses (and their audio)
-// overlapping, and lets us insert a natural breath before the assistant
-// starts its next turn instead of firing back-to-back.
-var voiceResponseActive = false;
-var voiceResponseQueued = false;
-var voiceResponseTimer = null;
-
-function setVoiceCaption(text){
-  var caption = document.getElementById('voice-caption');
-  caption.textContent = text;
-  // Keep new words in view without allowing the growing transcript to affect
-  // the card's dimensions.
-  caption.scrollTop = caption.scrollHeight;
-}
-
-function setVoiceStatus(text){
-  document.getElementById('voice-status-text').textContent = text;
-}
-
-function startVoiceCaptionReveal(){
-  if(voiceCaptionRevealTimer) return;
-  voiceCaptionRevealTimer = setInterval(function(){
-    if(voiceCaptionRevealed.length < voiceCaptionBuffer.length){
-      var lag = voiceCaptionBuffer.length - voiceCaptionRevealed.length;
-      var step = lag > 50 ? Math.ceil(lag / 8) : 1;
-      voiceCaptionRevealed = voiceCaptionBuffer.slice(0, voiceCaptionRevealed.length + step);
-      setVoiceCaption(voiceCaptionRevealed);
-    } else if(!voiceResponseActive){
-      clearInterval(voiceCaptionRevealTimer);
-      voiceCaptionRevealTimer = null;
-    }
-  }, 1000 / VOICE_CAPTION_CPS);
-}
-
-function sendVoiceEvent(payload){
-  if(voiceDC && voiceDC.readyState === 'open'){ voiceDC.send(JSON.stringify(payload)); }
-}
-
-// Waits for the caption to finish revealing (a proxy for the audio having
-// finished playing) plus a short fixed pause, then starts the next turn.
-// If a turn is already in flight, defers until it reports done.
-function requestVoiceResponse(minDelayMs){
-  clearTimeout(voiceResponseTimer);
-  if(voiceResponseActive){
-    voiceResponseQueued = true;
-    return;
-  }
-  var wait = function(){
-    if(voiceCaptionRevealed.length < voiceCaptionBuffer.length){
-      voiceResponseTimer = setTimeout(wait, 80);
-      return;
-    }
-    voiceResponseTimer = setTimeout(function(){ sendVoiceEvent({ type: 'response.create' }); }, minDelayMs || 0);
-  };
-  wait();
-}
-
-function setVoiceUserCaption(text){
-  document.getElementById('voice-caption-user').textContent = text ? ('You said: "' + text + '"') : '';
-}
-
-function renderVoiceProgress(phase){
-  VOICE_INNER_ORDER.forEach(function(key, i){
-    var el = document.querySelector('#voice-inner-steps [data-vinner="' + key + '"]');
-    var idx = VOICE_INNER_ORDER.indexOf(phase);
-    el.classList.remove('done', 'active');
-    if(idx === -1){ el.classList.add('done'); }
-    else if(i < idx) el.classList.add('done');
-    else if(i === idx) el.classList.add('active');
-  });
-  var outerDetails = document.querySelector('#voice-outer-steps [data-vouter="details"]');
-  var outerPay = document.querySelector('#voice-outer-steps [data-vouter="pay"]');
-  var outerTrack = document.querySelector('#voice-outer-steps [data-vouter="track"]');
-  [outerDetails, outerPay, outerTrack].forEach(function(el){ el.classList.remove('done', 'active'); });
-  if(phase === 'payment'){ outerDetails.classList.add('done'); outerPay.classList.add('active'); }
-  else if(phase === 'track'){ outerDetails.classList.add('done'); outerPay.classList.add('done'); outerTrack.classList.add('active'); }
-  else { outerDetails.classList.add('active'); }
-
-  renderVoiceDetail(phase);
-}
-
-function vcard(opts){
-  var state = opts.state || '';
-  var delay = ((opts.delay || 0)).toFixed(2);
-  var iconHtml = '';
-  if(opts.icon === 'spinner'){
-    iconHtml = '<span class="vcard-icon vcard-icon-spinner"><span class="vcard-spinner"></span></span>';
-  } else if(opts.icon){
-    iconHtml = '<span class="vcard-icon">' + opts.icon + '</span>';
-  }
-  return '<div class="vcard ' + state + '"' + (opts.uploadKind ? ' data-upload-kind="' + opts.uploadKind + '" data-upload-accept="' + opts.uploadAccept + '"' : '') + ' style="animation-delay:' + delay + 's">' +
-    iconHtml +
-    '<div class="vcard-body">' +
-      '<span class="vcard-label">' + opts.label + '</span>' +
-      '<span class="vcard-value">' + opts.value + '</span>' +
-      (opts.sub ? '<span class="vcard-sub">' + opts.sub + '</span>' : '') +
-    '</div>' +
-  '</div>';
-}
-
-function renderVoiceDetail(phase){
-  var el = document.getElementById('voice-detail');
-  var citizen = session.citizen;
-  var service = session.service;
-  if(!citizen || !service){ return; }
-  el.classList.remove('voice-caption-fade');
-  void el.offsetWidth;
-  el.classList.add('voice-caption-fade');
-
-  if(phase === 'details'){
-    var rows = [
-      { label: 'Applicant', value: citizen.name },
-      { label: 'State / RTO', value: citizen.state + ' · ' + citizen.rto },
-      { label: 'DL number', value: citizen.dl_number || '—' },
-      { label: 'Date of birth', value: citizen.dob ? formatDate(citizen.dob) : '—' },
-      { label: 'Licence class', value: citizen.vehicle_classes || '—' },
-    ];
-    el.innerHTML = '<div class="vcard-list">' + rows.map(function(r, i){
-      return vcard({ label: r.label, value: r.value, delay: i * 0.07 });
-    }).join('') + '</div>';
-  }
-  else if(phase === 'documents'){
-    var form1a = computeForm1a(service, citizen);
-    var done = session.uploads || {};
-    var rows = service.checklist.map(function(item){
-      // Items needing a file are not "ready" until one is actually attached —
-      // Setu cannot upload on the citizen's behalf, so the card carries the
-      // control and waits.
-      if(item.upload){
-        return {
-          icon: done[item.upload] ? '✓' : '↑',
-          label: done[item.upload] ? 'Uploaded' : 'Please attach this on screen',
-          value: item.label,
-          sub: item.badge,
-          state: done[item.upload] ? 'confirmed' : 'awaiting',
-          uploadKind: item.upload,
-          uploadAccept: 'image/png,image/jpeg',
-        };
-      }
-      return { icon: '✓', label: 'Document ready', value: item.label, sub: item.badge, state: 'confirmed' };
-    });
-    if(form1a.required){
-      rows.push({
-        icon: done.form_1a ? '✓' : '↑',
-        label: done.form_1a ? 'Form 1A uploaded' : 'Medical certificate needed',
-        value: 'Form 1A <a class="form-link" href="/forms/FORM-1A.pdf" target="_blank" rel="noopener">Open form</a>',
-        sub: form1a.reason,
-        state: done.form_1a ? 'confirmed' : 'flag',
-        uploadKind: 'form_1a',
-        uploadAccept: 'image/png,image/jpeg,application/pdf',
-      });
-    }
-    el.innerHTML = '<div class="vcard-list">' + rows.map(function(r, i){
-      return vcard({ icon: r.icon, label: r.label, value: r.value, sub: r.sub, state: r.state, delay: i * 0.07,
-        uploadKind: r.uploadKind, uploadAccept: r.uploadAccept });
-    }).join('') + '</div>';
-
-    // vcard() builds markup as a string, so the live inputs are attached after.
-    el.querySelectorAll('[data-upload-kind]').forEach(function(card){
-      var kind = card.getAttribute('data-upload-kind');
-      card.querySelector('.vcard-body').appendChild(
-        buildUploadRow(kind, card.getAttribute('data-upload-accept'), function(doc){
-          notifyVoiceUpload(kind, doc);
-          renderVoiceDetail('documents');
-        })
-      );
-    });
-  }
-  else if(phase === 'slot'){
-    var earliestDate = formatDate(new Date(CAL_YEAR, CAL_MONTH, Math.min.apply(null, CAL_AVAILABLE_DAYS)).toISOString());
-    var cards = [ vcard({ label: service.title + ' (' + service.form_number + ')', value: rupees(service.fee_cents), delay: 0 }) ];
-    if(session.selectedSlot){
-      cards.push(vcard({ icon: '✓', label: 'Say "yes" to confirm this RTO visit', value: session.selectedSlot.date + ' · ' + session.selectedSlot.time, state: 'awaiting', delay: 0.07 }));
-    } else {
-      cards.push(vcard({ label: 'Suggested earliest slot', value: earliestDate, sub: 'Tell Setu your preferred date and time', state: 'pending', delay: 0.07 }));
-    }
-    el.innerHTML = '<div class="vcard-list">' + cards.join('') + '</div>';
-  }
-  else if(phase === 'payment'){
-    var cards = [ vcard({ label: service.title + ' (' + service.form_number + ')', value: rupees(service.fee_cents), delay: 0 }) ];
-    if(session.selectedSlot){
-      cards.push(vcard({ icon: '✓', label: 'RTO visit confirmed', value: session.selectedSlot.date + ' · ' + session.selectedSlot.time, state: 'confirmed', delay: 0.07 }));
-    }
-    if(session.paymentDone){
-      cards.push(vcard({ icon: '✓', label: 'Payment', value: 'Received', sub: session.lastPaymentMethod ? ('via ' + session.lastPaymentMethod) : '', state: 'confirmed just-confirmed', delay: cards.length * 0.07 }));
-    } else if(session.paymentProcessing){
-      cards.push(vcard({ icon: 'spinner', label: 'Payment', value: 'Processing your ' + (session.lastPaymentMethod || '') + ' payment…', state: 'processing', delay: cards.length * 0.07 }));
-    } else {
-      cards.push(vcard({ label: 'Payment', value: 'Waiting for confirmation…', state: 'awaiting', delay: cards.length * 0.07 }));
-    }
-    el.innerHTML = '<div class="vcard-list">' + cards.join('') + '</div>';
-  }
-  else if(phase === 'track'){
-    el.innerHTML = '<div class="vcard-list">' +
-      vcard({ icon: '✓', label: 'Application submitted', value: session.referenceCode || '—', state: 'confirmed just-confirmed', delay: 0 }) +
-    '</div>';
-  }
-}
-
-function resetVoiceScreen(){
-  session.selectedSlot = null;
-  session.paymentDone = false;
-  session.paymentProcessing = false;
-  session.uploads = {};
-  session.learnerLicence = null;
-
-  var llPanel = document.getElementById('voice-ll-panel');
-  var llInput = document.getElementById('voice-ll-input');
-  llPanel.hidden = true;
-  llInput.value = '';
-  llInput.readOnly = false;
-  document.getElementById('voice-ll-error').hidden = true;
-  document.getElementById('voice-ll-done').hidden = true;
-  document.getElementById('voice-ll-submit').hidden = false;
-  setVoiceCaption('Tap "Start conversation" and allow microphone access to begin.');
-  setVoiceUserCaption('');
-  setVoiceStatus('Setu is ready');
-  document.getElementById('voice-mic-dot').classList.remove('live');
-  document.getElementById('voice-toggle-btn').hidden = false;
-  document.getElementById('voice-toggle-btn').disabled = false;
-  voiceCaptionBuffer = '';
-  voiceCaptionRevealed = '';
-  if(voiceCaptionRevealTimer){ clearInterval(voiceCaptionRevealTimer); voiceCaptionRevealTimer = null; }
-  voiceResponseActive = false;
-  voiceResponseQueued = false;
-  clearTimeout(voiceResponseTimer);
-  document.getElementById('voice-detail').innerHTML = '<p class="hint" style="margin:0;">Details will appear here once you start.</p>';
-  document.getElementById('voice-split').classList.add('pre-start');
-  var progressPanel = document.getElementById('voice-progress-panel');
-  progressPanel.hidden = true;
-  progressPanel.classList.remove('voice-reveal');
-  renderVoiceProgress('details');
-}
-
-function revealVoiceIntake(){
-  var split = document.getElementById('voice-split');
-  var progressPanel = document.getElementById('voice-progress-panel');
-  if(!progressPanel.hidden){ return; }
-  split.classList.remove('pre-start');
-  progressPanel.hidden = false;
-  progressPanel.classList.add('voice-reveal');
-  // Put the box on screen at the same moment Setu is told to ask for it, so
-  // the citizen is never hunting for something that isn't there yet.
-  document.getElementById('voice-ll-panel').hidden = !serviceNeedsLearnerLicence(session.voiceServiceKey || 'renew');
-  renderVoiceProgress('details');
-}
-
-var VOICE_HEADINGS = {
-  renew: 'Renew by talking to Setu',
-  dl: 'Apply for your driving licence by talking to Setu',
-  new: "Apply for your learner's licence by talking to Setu",
-  duplicate: 'Replace your licence by talking to Setu',
-};
-
-function setVoiceHeading(serviceKey){
-  var heading = VOICE_HEADINGS[serviceKey] || 'Talk to Setu';
-  document.getElementById('voice-title').textContent = heading;
-  document.getElementById('voice-crumb').textContent = heading;
-}
-
-// Typed rather than spoken: a licence number read aloud transcribes badly, and
-// getting it wrong here would put a wrong number on the application.
-function submitVoiceLearnerLicence(){
-  var input = document.getElementById('voice-ll-input');
-  var errorEl = document.getElementById('voice-ll-error');
-  var value = input.value.trim().replace(/\s+/g, ' ').toUpperCase();
-  errorEl.hidden = true;
-
-  if(value.length < 6){
-    errorEl.textContent = "Enter the number printed on your learner's licence.";
-    errorEl.hidden = false;
-    input.focus();
-    return;
-  }
-
-  // Setu is the only thing that can act on this, so if the channel is not open
-  // the number has gone nowhere. Saying "sent" then would leave the citizen
-  // waiting on an assistant that was never told.
-  if(!voiceDC || voiceDC.readyState !== 'open'){
-    errorEl.textContent = 'Not connected to Setu. Start the conversation, then submit this again.';
-    errorEl.hidden = false;
-    return;
-  }
-
-  session.learnerLicence = value;
-  input.value = value;
-  input.readOnly = true;
-  document.getElementById('voice-ll-submit').hidden = true;
-  document.getElementById('voice-ll-done').hidden = false;
-
-  sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text',
-    text: '[system] The citizen just typed their learner\'s licence number: ' + value + '. Read it back to them once to confirm, then call start_application.' }] } });
-  requestVoiceResponse(250);
-}
-
-// The model has no way to observe a file picker, so tell it when one lands.
-// Injected as a bracketed user turn: that shape is what the Realtime API
-// accepts for text input, and the caption panel only renders speech
-// transcriptions, so this never shows up as something the citizen said.
-function notifyVoiceUpload(kind, doc){
-  if(!voiceDC || voiceDC.readyState !== 'open') return;
-  var pending = missingUploads();
-  var note = '[system] The citizen just uploaded their ' + (doc.label || kind) + '. ' +
-    (pending.length
-      ? 'Still needed: ' + pending.map(function(u){ return u.label; }).join(', ') + '. Ask them for it.'
-      : 'All required uploads are now done — acknowledge briefly and continue.');
-  sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'message', role: 'user', content: [{ type: 'input_text', text: note }] } });
-  requestVoiceResponse(250);
-}
-
-function stopVoiceConnection(){
-  sendVoiceEvent({ type: 'response.cancel' });
-  clearTimeout(voiceResponseTimer);
-  if(voiceCaptionRevealTimer){ clearInterval(voiceCaptionRevealTimer); voiceCaptionRevealTimer = null; }
-  voiceResponseActive = false;
-  voiceResponseQueued = false;
-  voiceCaptionBuffer = '';
-  voiceCaptionRevealed = '';
-  if(voicePC){ try{ voicePC.close(); } catch(e){} voicePC = null; }
-  if(voiceStream){ voiceStream.getTracks().forEach(function(t){ t.stop(); }); voiceStream = null; }
-  voiceDC = null;
-  document.getElementById('voice-mic-dot').classList.remove('live');
-}
-
-function endVoiceRenewal(){
-  stopVoiceConnection();
-  showScreen('screen-dashboard');
-}
-
-// Assistant-initiated hangup (end_call tool): if the renewal actually
-// finished, land the citizen on their application status instead of just
-// the dashboard.
-function endVoiceCallFromAssistant(){
-  stopVoiceConnection();
-  if(session.applicationId && session.referenceCode){
-    openTrack().catch(function(){ showScreen('screen-dashboard'); });
-  } else {
-    showScreen('screen-dashboard');
-  }
-}
-
-// A tool reports on what happened in the database, not on whether the panel
-// redrew. Letting a render throw inside the try below turned a created
-// application into an error the model was told to retry, and it would sit there
-// asking again instead of moving on.
-function safeRenderVoiceProgress(phase){
-  try{ renderVoiceProgress(phase); }
-  catch(err){ console.error('[voice] could not render the ' + phase + ' step:', err); }
-}
-
-async function handleVoiceToolCall(name, args, callId){
-  var result = {};
-  try{
-    if(name === 'begin_intake'){
-      revealVoiceIntake();
-      result = { ok: true };
-    }
-    else if(name === 'start_application'){
-      var key = session.voiceServiceKey || 'renew';
-      // Same guard as confirm_documents: the model is told to wait, and this
-      // makes waiting the only thing that actually works.
-      if(serviceNeedsLearnerLicence(key) && !session.learnerLicence){
-        result = { error: "Not yet — the citizen has not typed their learner's licence number. There is a box on their screen headed \"Learner's licence number\". Ask them to type it and press Submit, then wait for the [system] note before calling this again." };
-      } else {
-        await createApplication(key, session.learnerLicence);
-        result = { ok: true, referenceCode: session.referenceCode };
-        safeRenderVoiceProgress('documents');
-      }
-    }
-    else if(name === 'confirm_documents'){
-      // Spoken confirmation is not enough when a file is genuinely required.
-      var pending = missingUploads();
-      if(pending.length){
-        safeRenderVoiceProgress('documents');
-        result = { error: 'Not yet — the citizen still has to attach: ' +
-          pending.map(function(u){ return u.label; }).join(', ') +
-          '. There is an upload box on their screen for each one. Ask them to attach it, then call this again.' };
-      } else {
-        result = { ok: true };
-        safeRenderVoiceProgress(session.service.requires_slot ? 'slot' : 'payment');
-      }
-    }
-    else if(name === 'select_slot'){
-      var availableDates = getAvailableSlotDates();
-      if(availableDates.indexOf(args.date) === -1){
-        result = { error: 'That date is not available. Available dates are: ' + availableDates.join(', ') + '.' };
-      } else if(CAL_TIMES.indexOf(args.time) === -1){
-        result = { error: 'That time is not available. Available times are: ' + CAL_TIMES.join(', ') + '.' };
-      } else {
-        session.selectedSlot = { date: args.date, time: args.time };
-        result = { ok: true, note: 'Shown on screen as a proposed card. Ask the citizen to confirm before calling confirm_slot.' };
-        safeRenderVoiceProgress('slot');
-      }
-    }
-    else if(name === 'confirm_slot'){
-      if(!session.selectedSlot){
-        result = { error: 'No slot has been picked yet — call select_slot first.' };
-      } else {
-        result = { ok: true };
-        safeRenderVoiceProgress('payment');
-      }
-    }
-    else if(name === 'make_payment'){
-      session.lastPaymentMethod = args.method;
-      session.paymentProcessing = true;
-      safeRenderVoiceProgress('payment');
-      var payment = await processPayment(args.method, 1200);
-      session.paymentProcessing = false;
-      session.paymentDone = true;
-      safeRenderVoiceProgress('payment');
-      result = { ok: true, status: payment.status };
-    }
-    else if(name === 'finish'){
-      if(!session.applicationId){
-        result = { error: 'No application has been started yet — call start_application first.' };
-      } else {
-        safeRenderVoiceProgress('track');
-        result = { ok: true, referenceCode: session.referenceCode };
-      }
-    }
-    else if(name === 'end_call'){
-      result = { ok: true };
-    }
-    else {
-      result = { error: 'Unknown tool: ' + name };
-    }
-  } catch(err){
-    result = { error: err.message };
-  }
-  sendVoiceEvent({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: callId, output: JSON.stringify(result) } });
-  if(name === 'end_call'){
-    // Let the goodbye that was just spoken finish playing before hanging up.
-    setTimeout(endVoiceCallFromAssistant, 2600);
-    return;
-  }
-  requestVoiceResponse(400);
-}
-
-function handleVoiceEvent(evt){
-  if(evt.type === 'response.created'){
-    voiceResponseActive = true;
-    voiceCaptionBuffer = '';
-    voiceCaptionRevealed = '';
-    setVoiceStatus('Setu is speaking');
-  }
-  else if(evt.type === 'response.output_audio_transcript.delta'){
-    if(voiceCaptionBuffer === ''){
-      var caption = document.getElementById('voice-caption');
-      caption.classList.remove('voice-caption-fade');
-      void caption.offsetWidth;
-      caption.classList.add('voice-caption-fade');
-    }
-    voiceCaptionBuffer += evt.delta;
-    startVoiceCaptionReveal();
-  }
-  else if(evt.type === 'response.done'){
-    voiceResponseActive = false;
-    setVoiceStatus('Setu is listening');
-    var output = (evt.response && evt.response.output) || [];
-    var hadToolCall = false;
-    output.forEach(function(item){
-      if(item.type === 'function_call'){
-        hadToolCall = true;
-        var args = {};
-        try{ args = JSON.parse(item.arguments || '{}'); } catch(e){}
-        handleVoiceToolCall(item.name, args, item.call_id);
-      }
-    });
-    // Always clear the flag. It used to survive a tool-call turn, so a later
-    // request could be swallowed as "already queued" by a queue nothing drains.
-    var wasQueued = voiceResponseQueued;
-    voiceResponseQueued = false;
-    // After a tool call the handler asks for the next turn itself; asking here
-    // too would start two.
-    if(!hadToolCall && wasQueued){
-      requestVoiceResponse(300);
-    }
-  }
-  else if(evt.type === 'conversation.item.input_audio_transcription.completed' && evt.transcript){
-    setVoiceUserCaption(evt.transcript);
-  }
-}
-
-async function startVoiceRenewal(){
-  var btn = document.getElementById('voice-toggle-btn');
-  btn.hidden = true;
-  btn.disabled = true;
-  setVoiceCaption('Connecting…');
-  setVoiceStatus('Connecting to Setu');
-
-  try{
-    var serviceKey = session.voiceServiceKey || 'renew';
-    var data = await api('/api/applications/service/' + serviceKey);
-    session.service = data.service;
-    var form1a = computeForm1a(session.service, session.citizen);
-
-    var voiceSession = await api('/api/realtime/session', { method: 'POST', body: {
-      citizenName: session.citizen.name,
-      dob: session.citizen.dob,
-      vehicleClasses: session.citizen.vehicle_classes,
-      rto: session.citizen.state + ' · ' + session.citizen.rto,
-      serviceTitle: session.service.title,
-      serviceAction: VOICE_SERVICE_ACTION[serviceKey] || 'their licence application',
-      prerequisiteNote: session.service.prerequisite_note || null,
-      needsLearnerLicence: serviceKey === 'dl',
-      formNumber: session.service.form_number,
-      feeRupees: Math.round(session.service.fee_cents / 100),
-      requiresSlot: session.service.requires_slot,
-      form1a: form1a,
-      checklist: session.service.checklist,
-      uploads: requiredUploads(session.service, session.citizen).map(function(u){ return u.label; }),
-      earliestSlotDate: formatDate(new Date(CAL_YEAR, CAL_MONTH, Math.min.apply(null, CAL_AVAILABLE_DAYS)).toISOString()),
-      availableDates: getAvailableSlotDates(),
-      slotTimes: CAL_TIMES,
-    }});
-
-    voicePC = new RTCPeerConnection();
-    var audioEl = document.createElement('audio');
-    audioEl.autoplay = true;
-    voicePC.ontrack = function(e){ audioEl.srcObject = e.streams[0]; };
-    voicePC.oniceconnectionstatechange = function(){
-      console.log('[voice] ice state:', voicePC.iceConnectionState);
-      if(voicePC.iceConnectionState === 'failed' || voicePC.iceConnectionState === 'disconnected'){
-        setVoiceCaption('Connection lost (ICE ' + voicePC.iceConnectionState + '). Try again.');
-        setVoiceStatus('Connection lost');
-      }
-    };
-    voicePC.onconnectionstatechange = function(){ console.log('[voice] connection state:', voicePC.connectionState); };
-
-    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    voicePC.addTrack(voiceStream.getTracks()[0]);
-
-    voiceDC = voicePC.createDataChannel('oai-events');
-    voiceDC.addEventListener('open', function(){
-      console.log('[voice] data channel open');
-      setVoiceCaption('');
-      setVoiceStatus('Setu is listening');
-      document.getElementById('voice-mic-dot').classList.add('live');
-      btn.hidden = true;
-      requestVoiceResponse(0);
-    });
-    voiceDC.addEventListener('message', function(e){
-      try{ handleVoiceEvent(JSON.parse(e.data)); } catch(err){ console.error('[voice] event handling error:', err); }
-    });
-    voiceDC.addEventListener('error', function(e){ console.error('[voice] data channel error:', e); });
-    voiceDC.addEventListener('close', function(){
-      console.log('[voice] data channel closed');
-      setVoiceCaption('Disconnected.');
-      setVoiceStatus('Disconnected');
-      document.getElementById('voice-mic-dot').classList.remove('live');
-    });
-
-    var offer = await voicePC.createOffer();
-    await voicePC.setLocalDescription(offer);
-
-    var sdpRes = await fetch('https://api.openai.com/v1/realtime/calls', {
-      method: 'POST',
-      body: offer.sdp,
-      headers: {
-        Authorization: 'Bearer ' + voiceSession.value,
-        'Content-Type': 'application/sdp',
-      },
-    });
-    if(!sdpRes.ok){
-      var errText = await sdpRes.text().catch(function(){ return ''; });
-      console.error('[voice] SDP exchange failed:', sdpRes.status, errText);
-      throw new Error('Could not connect to the voice assistant (HTTP ' + sdpRes.status + ').');
-    }
-    var answerSdp = await sdpRes.text();
-    await voicePC.setRemoteDescription({ type: 'answer', sdp: answerSdp });
-  } catch(err){
-    console.error('[voice] startVoiceRenewal failed:', err);
-    setVoiceCaption(err.message || 'Could not start the voice assistant.');
-    setVoiceStatus('Could not connect');
-    btn.hidden = false;
-    btn.disabled = false;
-    stopVoiceConnection();
-  }
-}
-
 async function handleAction(action, el){
   try{
     if(action === 'connect-digilocker'){
@@ -1678,18 +1123,14 @@ async function handleAction(action, el){
       if(!session.citizen){ session.pendingService = s2; showScreen('screen-login'); return; }
       await startIntake(s2);
     }
-    else if(action === 'intake-next'){ intakeSubstep = Math.min(3, intakeSubstep + 1); renderIntakeSubsteps(); }
-    else if(action === 'intake-back'){ intakeSubstep = Math.max(1, intakeSubstep - 1); renderIntakeSubsteps(); }
-    else if(action === 'start-voice-renew' || action === 'start-voice-apply'){
-      if(!session.citizen){ showScreen('screen-login'); return; }
-      session.voiceServiceKey = el.getAttribute('data-service') || 'renew';
-      resetVoiceScreen();
-      setVoiceHeading(session.voiceServiceKey);
-      showScreen('screen-voice-renew');
+    else if(action === 'intake-next'){
+      // Step 1 is where the application actually gets created for services that
+      // need a typed licence number, so it can refuse to advance.
+      if(intakeSubstep === 1 && !(await completeIntakeDetails())){ return; }
+      intakeSubstep = Math.min(3, intakeSubstep + 1);
+      renderIntakeSubsteps();
     }
-    else if(action === 'voice-ll-submit'){ submitVoiceLearnerLicence(); }
-    else if(action === 'voice-start'){ await startVoiceRenewal(); }
-    else if(action === 'voice-end'){ endVoiceRenewal(); }
+    else if(action === 'intake-back'){ intakeSubstep = Math.max(1, intakeSubstep - 1); renderIntakeSubsteps(); }
     else if(action === 'goto-pay'){
       if(session.service.requires_slot && !session.selectedSlot){
         document.getElementById('cal-slot-summary').textContent = 'Please pick a date and time above to continue.';
@@ -1706,7 +1147,6 @@ async function handleAction(action, el){
     else if(action === 'pay-now'){ await runPayment(false); }
     else if(action === 'pay-delay-demo'){ await runPayment(true); }
     else if(action === 'goto-track'){
-      stopVoiceConnection();
       if(!session.applicationId && !(el && el.dataset && el.dataset.appId)){
         alert('No application to show yet.');
         return;
