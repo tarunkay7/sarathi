@@ -884,6 +884,101 @@ async function loadGrievances(excludeId){
   renderGrievanceHistory(data.grievances, excludeId);
 }
 
+var grievanceRecognition = null;
+var grievanceRecordingTimer = null;
+var grievanceRecordingSeconds = 0;
+var grievanceVoiceFinal = '';
+
+function grievanceTime(seconds){
+  return String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
+}
+
+function setGrievanceMode(mode){
+  var voice = mode === 'voice';
+  document.getElementById('grievance-type-input').hidden = voice;
+  document.getElementById('grievance-voice-input').hidden = !voice;
+  document.getElementById('grievance-type-tab').classList.toggle('active', !voice);
+  document.getElementById('grievance-voice-tab').classList.toggle('active', voice);
+  document.getElementById('grievance-type-tab').setAttribute('aria-selected', String(!voice));
+  document.getElementById('grievance-voice-tab').setAttribute('aria-selected', String(voice));
+  if(!voice) stopGrievanceRecording();
+}
+
+function finishGrievanceRecording(label){
+  clearInterval(grievanceRecordingTimer);
+  grievanceRecordingTimer = null;
+  document.getElementById('grievance-mic-dot').classList.remove('live');
+  document.getElementById('grievance-record-start').hidden = false;
+  document.getElementById('grievance-record-stop').hidden = true;
+  document.getElementById('grievance-recording-label').textContent = label || 'Recording stopped';
+}
+
+function stopGrievanceRecording(){
+  if(grievanceRecognition){
+    try{ grievanceRecognition.stop(); } catch(e){}
+    grievanceRecognition = null;
+  }
+  finishGrievanceRecording();
+}
+
+function startGrievanceRecording(){
+  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var errorEl = document.getElementById('grievance-error');
+  if(!Recognition){
+    errorEl.textContent = 'Voice input is not supported in this browser. Please use Chrome or type your grievance.';
+    errorEl.hidden = false;
+    return;
+  }
+
+  errorEl.hidden = true;
+  stopGrievanceRecording();
+  var field = document.getElementById('grievance-body');
+  grievanceVoiceFinal = field.value.trim();
+  if(grievanceVoiceFinal) grievanceVoiceFinal += ' ';
+  grievanceRecordingSeconds = 0;
+  document.getElementById('grievance-recording-time').textContent = '00:00';
+  document.getElementById('grievance-recording-label').textContent = 'Listening…';
+  document.getElementById('grievance-mic-dot').classList.add('live');
+  document.getElementById('grievance-record-start').hidden = true;
+  document.getElementById('grievance-record-stop').hidden = false;
+
+  grievanceRecognition = new Recognition();
+  grievanceRecognition.lang = 'en-IN';
+  grievanceRecognition.continuous = true;
+  grievanceRecognition.interimResults = true;
+  grievanceRecognition.onresult = function(event){
+    var interim = '';
+    for(var i = event.resultIndex; i < event.results.length; i++){
+      var words = event.results[i][0].transcript;
+      if(event.results[i].isFinal) grievanceVoiceFinal += words.trim() + ' ';
+      else interim += words;
+    }
+    var text = (grievanceVoiceFinal + interim).trim().slice(0, 2000);
+    field.value = text;
+    var transcript = document.getElementById('grievance-transcript');
+    transcript.textContent = text || 'Your words will appear here as you speak.';
+    transcript.classList.toggle('has-text', Boolean(text));
+  };
+  grievanceRecognition.onerror = function(event){
+    var message = event.error === 'not-allowed'
+      ? 'Microphone permission was denied. Allow microphone access or type your grievance.'
+      : 'Voice recording stopped. You can try again or continue typing.';
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+    grievanceRecognition = null;
+    finishGrievanceRecording('Recording stopped');
+  };
+  grievanceRecognition.onend = function(){
+    grievanceRecognition = null;
+    finishGrievanceRecording('Recording ready');
+  };
+  grievanceRecognition.start();
+  grievanceRecordingTimer = setInterval(function(){
+    grievanceRecordingSeconds++;
+    document.getElementById('grievance-recording-time').textContent = grievanceTime(grievanceRecordingSeconds);
+  }, 1000);
+}
+
 async function submitGrievance(btn){
   var field = document.getElementById('grievance-body');
   var errorEl = document.getElementById('grievance-error');
@@ -930,9 +1025,15 @@ async function submitGrievance(btn){
 // focusField only when the citizen asked for the form back — on a plain
 // dashboard load, moving focus here would yank the page down to the sidebar.
 function resetGrievanceForm(focusField){
+  stopGrievanceRecording();
+  setGrievanceMode('type');
   document.getElementById('grievance-result').hidden = true;
   document.getElementById('grievance-form').hidden = false;
   document.getElementById('grievance-error').hidden = true;
+  var transcript = document.getElementById('grievance-transcript');
+  var text = document.getElementById('grievance-body').value.trim();
+  transcript.textContent = text || 'Your words will appear here as you speak.';
+  transcript.classList.toggle('has-text', Boolean(text));
   if(focusField) document.getElementById('grievance-body').focus();
 }
 
@@ -1215,7 +1316,11 @@ async function handleAction(action, el){
       session.citizen = null; session.applicationId = null; session.referenceCode = null; session.service = null; session.application = null;
       showScreen('screen-home');
     }
-    else if(action === 'submit-grievance'){ await submitGrievance(el); }
+    else if(action === 'grievance-mode-type'){ setGrievanceMode('type'); document.getElementById('grievance-body').focus(); }
+    else if(action === 'grievance-mode-voice'){ setGrievanceMode('voice'); }
+    else if(action === 'start-grievance-recording'){ startGrievanceRecording(); }
+    else if(action === 'stop-grievance-recording'){ stopGrievanceRecording(); }
+    else if(action === 'submit-grievance'){ stopGrievanceRecording(); await submitGrievance(el); }
     // The outcome card is going away, so the ticket it was holding rejoins the
     // history rather than disappearing from the panel entirely.
     else if(action === 'grievance-again'){ resetGrievanceForm(true); renderGrievanceHistory(session.grievances); }

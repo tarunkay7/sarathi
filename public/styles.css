@@ -561,3 +561,20 @@
   .grv-headline.routed{background:var(--indigo-soft);color:var(--indigo);}
   #grievance-result .btn{margin-top:2px;}
   #grievance-result[hidden],#grievance-form[hidden]{display:none;}
+  .grievance-input-tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;margin:12px 0 14px;background:var(--surface-sunk);border:1px solid var(--rule);border-radius:var(--radius-sm);}
+  .grievance-input-tab{height:36px;border:0;border-radius:7px;background:transparent;color:var(--ink-soft);font:600 13px var(--font-body);cursor:pointer;}
+  .grievance-input-tab.active{background:var(--surface);color:var(--indigo);box-shadow:0 1px 4px rgba(19,27,51,.1);}
+  .grievance-voice-input{border:1px solid var(--rule);border-radius:var(--radius-sm);padding:14px;margin-bottom:16px;background:var(--surface-sunk);}
+  .grievance-voice-input[hidden]{display:none;}
+  .grievance-recorder-status{display:flex;align-items:center;gap:10px;margin-bottom:12px;color:var(--ink);}
+  .grievance-recorder-status > div{display:flex;flex:1;justify-content:space-between;align-items:center;gap:10px;font-size:13px;}
+  .grievance-recording-time{font-variant-numeric:tabular-nums;color:var(--ink-faint);font-weight:700;}
+  .grievance-mic-dot{width:12px;height:12px;border-radius:50%;background:var(--rule);flex:0 0 auto;}
+  .grievance-mic-dot.live{background:var(--red);box-shadow:0 0 0 5px var(--red-soft);animation:grievance-mic-pulse 1.4s ease-in-out infinite;}
+  @keyframes grievance-mic-pulse{0%,100%{box-shadow:0 0 0 5px var(--red-soft);}50%{box-shadow:0 0 0 9px var(--red-soft);}}
+  @media(prefers-reduced-motion: reduce){.grievance-mic-dot.live{animation:none;}}
+  .grievance-transcript{min-height:76px;margin:0 0 12px;padding:11px 12px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--ink-soft);font-size:13px;line-height:1.5;}
+  .grievance-transcript.has-text{color:var(--ink);}
+  .grievance-record-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .grievance-record-actions .btn{width:auto;}
+  .grievance-record-actions .btn[hidden]{display:none;}
