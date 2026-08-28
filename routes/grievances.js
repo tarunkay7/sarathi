@@ -172,9 +172,12 @@ function addWorkingDays(days) {
 }
 
 router.post('/', asyncHandler(async (req, res) => {
-  const { citizenId, applicationId, body } = req.body || {};
-  const citizen = requireInteger(citizenId, res);
-  if (citizen === null) return;
+  const { citizenId, mobileNumber, applicationId, body } = req.body || {};
+  const requestedCitizen = /^\d+$/.test(String(citizenId || '')) ? Number(citizenId) : null;
+  const mobile = String(mobileNumber || '').trim();
+  if (requestedCitizen === null && !/^\d{10}$/.test(mobile)) {
+    return res.status(400).json({ error: 'Invalid citizen account.' });
+  }
 
   const text = String(body || '').trim();
   if (text.length < 10) {
@@ -183,6 +186,16 @@ router.post('/', asyncHandler(async (req, res) => {
   if (text.length > 2000) {
     return res.status(400).json({ error: 'Please keep the description under 2000 characters.' });
   }
+
+  // Browser storage can outlive a rebuilt demo database, so its numeric id may
+  // be stale. Resolve the current row using the registered login mobile number.
+  const citizenResult = /^\d{10}$/.test(mobile)
+    ? await pool.query('SELECT * FROM citizens WHERE mobile_number = $1', [mobile])
+    : await pool.query('SELECT * FROM citizens WHERE id = $1', [requestedCitizen]);
+  if (!citizenResult.rows[0]) {
+    return res.status(401).json({ error: 'Your account session has expired. Please log in again and resubmit your grievance.' });
+  }
+  const citizen = citizenResult.rows[0].id;
 
   // Optional, and must belong to this citizen — otherwise a ticket could be
   // attached to someone else's application.
@@ -199,9 +212,6 @@ router.post('/', asyncHandler(async (req, res) => {
     linkedApplication = linked;
     linkedReference = owned.rows[0].reference_code;
   }
-
-  const citizenResult = await pool.query('SELECT * FROM citizens WHERE id = $1', [citizen]);
-  if (!citizenResult.rows[0]) return res.status(404).json({ error: 'Not found' });
 
   const appsResult = await pool.query(
     `SELECT a.id, a.reference_code, a.status, a.expected_by, a.escalated, a.created_at,

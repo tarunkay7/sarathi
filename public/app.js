@@ -915,16 +915,20 @@ async function loadGrievances(excludeId){
   renderGrievanceHistory(data.grievances, excludeId);
 }
 
-var grievanceRecognition = null;
+var grievanceMediaRecorder = null;
+var grievanceMediaStream = null;
+var grievanceAudioChunks = [];
 var grievanceRecordingTimer = null;
 var grievanceRecordingSeconds = 0;
-var grievanceVoiceFinal = '';
+var grievanceTextBeforeRecording = '';
+var grievanceCancelRecording = false;
+var grievanceTranscribing = false;
 
 function grievanceTime(seconds){
   return String(Math.floor(seconds / 60)).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
 }
 
-function setGrievanceMode(mode){
+function setGrievanceMode(mode, cancelRecording){
   var voice = mode === 'voice';
   document.getElementById('grievance-type-input').hidden = voice;
   document.getElementById('grievance-voice-input').hidden = !voice;
@@ -932,7 +936,7 @@ function setGrievanceMode(mode){
   document.getElementById('grievance-voice-tab').classList.toggle('active', voice);
   document.getElementById('grievance-type-tab').setAttribute('aria-selected', String(!voice));
   document.getElementById('grievance-voice-tab').setAttribute('aria-selected', String(voice));
-  if(!voice) stopGrievanceRecording();
+  if(!voice) stopGrievanceRecording(Boolean(cancelRecording));
 }
 
 function finishGrievanceRecording(label){
@@ -944,70 +948,105 @@ function finishGrievanceRecording(label){
   document.getElementById('grievance-recording-label').textContent = label || 'Recording stopped';
 }
 
-function stopGrievanceRecording(){
-  if(grievanceRecognition){
-    try{ grievanceRecognition.stop(); } catch(e){}
-    grievanceRecognition = null;
+function releaseGrievanceMicrophone(){
+  if(grievanceMediaStream){
+    grievanceMediaStream.getTracks().forEach(function(track){ track.stop(); });
+    grievanceMediaStream = null;
   }
+}
+
+function stopGrievanceRecording(cancel){
+  grievanceCancelRecording = Boolean(cancel);
+  if(grievanceMediaRecorder && grievanceMediaRecorder.state !== 'inactive'){
+    grievanceMediaRecorder.stop();
+    return;
+  }
+  grievanceMediaRecorder = null;
+  releaseGrievanceMicrophone();
   finishGrievanceRecording();
 }
 
-function startGrievanceRecording(){
-  var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+async function transcribeGrievanceAudio(blob){
   var errorEl = document.getElementById('grievance-error');
-  if(!Recognition){
-    errorEl.textContent = 'Voice input is not supported in this browser. Please use Chrome or type your grievance.';
+  var startButton = document.getElementById('grievance-record-start');
+  grievanceTranscribing = true;
+  startButton.disabled = true;
+  document.getElementById('grievance-recording-label').textContent = 'Translating to English with OpenAI…';
+  document.getElementById('grievance-transcript').textContent = 'Turning your recording into English text…';
+  try{
+    var response = await fetch('/api/transcriptions/grievance', {
+      method: 'POST',
+      headers: { 'Content-Type': blob.type || 'audio/webm' },
+      body: blob
+    });
+    var data = {};
+    try{ data = await response.json(); } catch(e){}
+    if(!response.ok) throw new Error(data.error || 'The recording could not be translated.');
+    var text = ((grievanceTextBeforeRecording ? grievanceTextBeforeRecording + ' ' : '') + data.text).trim().slice(0, 2000);
+    var field = document.getElementById('grievance-body');
+    field.value = text;
+    var transcript = document.getElementById('grievance-transcript');
+    transcript.textContent = text;
+    transcript.classList.add('has-text');
+    document.getElementById('grievance-recording-label').textContent = 'English text ready';
+  } catch(err){
+    errorEl.textContent = err.message;
+    errorEl.hidden = false;
+    document.getElementById('grievance-recording-label').textContent = 'Translation failed';
+    document.getElementById('grievance-transcript').textContent = grievanceTextBeforeRecording || 'Try recording again or type your grievance.';
+  } finally {
+    grievanceTranscribing = false;
+    startButton.disabled = false;
+  }
+}
+
+async function startGrievanceRecording(){
+  var errorEl = document.getElementById('grievance-error');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
+    errorEl.textContent = 'Audio recording is not supported in this browser. Please use a current browser or type your grievance.';
     errorEl.hidden = false;
     return;
   }
-
   errorEl.hidden = true;
-  stopGrievanceRecording();
-  var field = document.getElementById('grievance-body');
-  grievanceVoiceFinal = field.value.trim();
-  if(grievanceVoiceFinal) grievanceVoiceFinal += ' ';
+  stopGrievanceRecording(true);
+  grievanceCancelRecording = false;
+  grievanceAudioChunks = [];
+  grievanceTextBeforeRecording = document.getElementById('grievance-body').value.trim();
   grievanceRecordingSeconds = 0;
-  document.getElementById('grievance-recording-time').textContent = '00:00';
-  document.getElementById('grievance-recording-label').textContent = 'Listening…';
-  document.getElementById('grievance-mic-dot').classList.add('live');
-  document.getElementById('grievance-record-start').hidden = true;
-  document.getElementById('grievance-record-stop').hidden = false;
-
-  grievanceRecognition = new Recognition();
-  grievanceRecognition.lang = 'en-IN';
-  grievanceRecognition.continuous = true;
-  grievanceRecognition.interimResults = true;
-  grievanceRecognition.onresult = function(event){
-    var interim = '';
-    for(var i = event.resultIndex; i < event.results.length; i++){
-      var words = event.results[i][0].transcript;
-      if(event.results[i].isFinal) grievanceVoiceFinal += words.trim() + ' ';
-      else interim += words;
-    }
-    var text = (grievanceVoiceFinal + interim).trim().slice(0, 2000);
-    field.value = text;
-    var transcript = document.getElementById('grievance-transcript');
-    transcript.textContent = text || 'Your words will appear here as you speak.';
-    transcript.classList.toggle('has-text', Boolean(text));
-  };
-  grievanceRecognition.onerror = function(event){
-    var message = event.error === 'not-allowed'
-      ? 'Microphone permission was denied. Allow microphone access or type your grievance.'
-      : 'Voice recording stopped. You can try again or continue typing.';
-    errorEl.textContent = message;
+  try{
+    grievanceMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    var preferred = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : '';
+    grievanceMediaRecorder = preferred
+      ? new MediaRecorder(grievanceMediaStream, { mimeType: preferred })
+      : new MediaRecorder(grievanceMediaStream);
+    grievanceMediaRecorder.ondataavailable = function(event){
+      if(event.data && event.data.size) grievanceAudioChunks.push(event.data);
+    };
+    grievanceMediaRecorder.onstop = async function(){
+      var mimeType = grievanceMediaRecorder.mimeType || (grievanceAudioChunks[0] && grievanceAudioChunks[0].type) || 'audio/webm';
+      var blob = new Blob(grievanceAudioChunks, { type: mimeType });
+      grievanceMediaRecorder = null;
+      releaseGrievanceMicrophone();
+      finishGrievanceRecording(grievanceCancelRecording ? 'Ready to record' : 'Recording complete');
+      if(!grievanceCancelRecording && blob.size) await transcribeGrievanceAudio(blob);
+    };
+    grievanceMediaRecorder.start(250);
+    document.getElementById('grievance-recording-time').textContent = '00:00';
+    document.getElementById('grievance-recording-label').textContent = 'Recording…';
+    document.getElementById('grievance-mic-dot').classList.add('live');
+    document.getElementById('grievance-record-start').hidden = true;
+    document.getElementById('grievance-record-stop').hidden = false;
+    grievanceRecordingTimer = setInterval(function(){
+      grievanceRecordingSeconds++;
+      document.getElementById('grievance-recording-time').textContent = grievanceTime(grievanceRecordingSeconds);
+      if(grievanceRecordingSeconds >= 120) stopGrievanceRecording(false);
+    }, 1000);
+  } catch(err){
+    releaseGrievanceMicrophone();
+    finishGrievanceRecording('Ready to record');
+    errorEl.textContent = 'Microphone permission was denied. Allow microphone access or type your grievance.';
     errorEl.hidden = false;
-    grievanceRecognition = null;
-    finishGrievanceRecording('Recording stopped');
-  };
-  grievanceRecognition.onend = function(){
-    grievanceRecognition = null;
-    finishGrievanceRecording('Recording ready');
-  };
-  grievanceRecognition.start();
-  grievanceRecordingTimer = setInterval(function(){
-    grievanceRecordingSeconds++;
-    document.getElementById('grievance-recording-time').textContent = grievanceTime(grievanceRecordingSeconds);
-  }, 1000);
+  }
 }
 
 async function submitGrievance(btn){
@@ -1030,6 +1069,7 @@ async function submitGrievance(btn){
     var select = document.getElementById('grievance-application');
     var data = await api('/api/grievances', { method:'POST', body:{
       citizenId: session.citizen.id,
+      mobileNumber: session.citizen.mobile_number,
       applicationId: select && select.value ? Number(select.value) : null,
       body: text
     }});
@@ -1056,14 +1096,13 @@ async function submitGrievance(btn){
 // focusField only when the citizen asked for the form back — on a plain
 // dashboard load, moving focus here would yank the page down to the sidebar.
 function resetGrievanceForm(focusField){
-  stopGrievanceRecording();
-  setGrievanceMode('type');
+  setGrievanceMode('type', true);
   document.getElementById('grievance-result').hidden = true;
   document.getElementById('grievance-form').hidden = false;
   document.getElementById('grievance-error').hidden = true;
   var transcript = document.getElementById('grievance-transcript');
   var text = document.getElementById('grievance-body').value.trim();
-  transcript.textContent = text || 'Your words will appear here as you speak.';
+  transcript.textContent = text || 'Your English transcript will appear here after recording.';
   transcript.classList.toggle('has-text', Boolean(text));
   if(focusField) document.getElementById('grievance-body').focus();
 }
@@ -1351,7 +1390,15 @@ async function handleAction(action, el){
     else if(action === 'grievance-mode-voice'){ setGrievanceMode('voice'); }
     else if(action === 'start-grievance-recording'){ startGrievanceRecording(); }
     else if(action === 'stop-grievance-recording'){ stopGrievanceRecording(); }
-    else if(action === 'submit-grievance'){ stopGrievanceRecording(); await submitGrievance(el); }
+    else if(action === 'submit-grievance'){
+      if((grievanceMediaRecorder && grievanceMediaRecorder.state !== 'inactive') || grievanceTranscribing){
+        var recordingError = document.getElementById('grievance-error');
+        recordingError.textContent = grievanceTranscribing ? 'Wait for the transcription to finish before submitting.' : 'Stop the recording and wait for the transcription before submitting.';
+        recordingError.hidden = false;
+        return;
+      }
+      await submitGrievance(el);
+    }
     // The outcome card is going away, so the ticket it was holding rejoins the
     // history rather than disappearing from the panel entirely.
     else if(action === 'grievance-again'){ resetGrievanceForm(true); renderGrievanceHistory(session.grievances); }
