@@ -88,7 +88,7 @@ router.get('/citizen/:citizenId', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
-  const { citizenId, serviceKey, dob, learnerLicenceNumber } = req.body;
+  const { citizenId, serviceKey, dob, learnerLicenceNumber, vehicleClasses } = req.body;
   if (requireInteger(citizenId, res) === null) return;
 
   const serviceResult = await pool.query('SELECT * FROM services WHERE key = $1', [serviceKey]);
@@ -102,6 +102,14 @@ router.post('/', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: "Enter the learner's licence number this application is based on." });
   }
 
+  // Which classes the licence is for is the citizen's answer, not something to
+  // read off their account — a new account holds none. It also decides whether a
+  // medical certificate is required, so it cannot be left until later.
+  const classes = String(vehicleClasses || '').trim();
+  if (serviceKey === 'dl' && !classes) {
+    return res.status(400).json({ error: 'Choose at least one vehicle class you are applying for.' });
+  }
+
   if (dob) {
     await pool.query('UPDATE citizens SET dob = $1 WHERE id = $2', [dob, citizenId]);
   }
@@ -111,9 +119,9 @@ router.post('/', asyncHandler(async (req, res) => {
   expectedBy.setDate(expectedBy.getDate() + service.expected_days);
 
   const inserted = await pool.query(
-    `INSERT INTO applications (reference_code, citizen_id, service_key, status, expected_by, learner_licence_number)
-     VALUES ($1,$2,$3,'details',$4,$5) RETURNING *`,
-    [referenceCode, citizenId, serviceKey, expectedBy, learnerLicence || null]
+    `INSERT INTO applications (reference_code, citizen_id, service_key, status, expected_by, learner_licence_number, vehicle_classes)
+     VALUES ($1,$2,$3,'details',$4,$5,$6) RETURNING *`,
+    [referenceCode, citizenId, serviceKey, expectedBy, learnerLicence || null, classes || null]
   );
   const application = inserted.rows[0];
   await pool.query(

@@ -291,7 +291,7 @@
                   <button class="btn primary small" data-action="start-grievance-recording" id="grievance-record-start">Start recording</button>
                   <button class="btn ghost small" data-action="stop-grievance-recording" id="grievance-record-stop" hidden>Stop recording</button>
                 </div>
-                <p class="hint">Your speech is converted into text for the grievance. This prototype does not save the audio recording.</p>
+                <p class="hint">Your browser sends the audio to its own speech service to turn it into text. This prototype never receives or stores the recording — only the words you see above.</p>
               </div>
               <div class="field" id="grievance-link-field" hidden>
                 <label for="grievance-application">Is it about one application?</label>
@@ -482,6 +482,20 @@
         <input id="intake-ll-input" type="text" maxlength="24" placeholder="e.g. TS09 2025 0123456" autocomplete="off">
         <p class="hint" style="margin-top:6px;">The permanent licence is issued against this, so it has to match the licence you hold.</p>
         <p class="error-text" id="intake-ll-error" hidden></p>
+      </div>
+
+      <!-- Asked, not assumed. A new account holds no licence, so it has no
+           classes — and the class chosen decides whether Form 1A is needed. -->
+      <div class="field" id="intake-class-field" hidden>
+        <label>Which vehicle classes are you applying for? <span class="req">*</span></label>
+        <div class="class-choices" id="intake-class-choices">
+          <label class="class-choice"><input type="checkbox" value="MCWOG" data-class-option><span><strong>MCWOG</strong>Motorcycle without gear</span></label>
+          <label class="class-choice"><input type="checkbox" value="MCWG" data-class-option><span><strong>MCWG</strong>Motorcycle with gear</span></label>
+          <label class="class-choice"><input type="checkbox" value="LMV" data-class-option><span><strong>LMV</strong>Light motor vehicle — car, jeep</span></label>
+          <label class="class-choice"><input type="checkbox" value="HMV (Transport)" data-class-option><span><strong>HMV</strong>Heavy transport vehicle</span></label>
+        </div>
+        <p class="hint" style="margin-top:8px;" id="intake-class-note">Choosing a transport class adds a medical certificate to your checklist.</p>
+        <p class="error-text" id="intake-class-error" hidden></p>
       </div>
       <div class="banner escalate" id="intake-prerequisite" hidden style="margin-top:0;"></div>
       <div class="banner note" id="intake-rto-basis" hidden style="margin-top:0;"></div>

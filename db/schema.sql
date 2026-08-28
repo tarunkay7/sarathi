@@ -180,3 +180,15 @@ CREATE INDEX IF NOT EXISTS grievances_citizen_idx ON grievances (citizen_id, id 
 -- learner's licence, so the number is part of the application rather than
 -- something checked once and forgotten. Nullable: no other service needs it.
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS learner_licence_number TEXT;
+
+-- A citizen who holds no licence holds no vehicle classes either. The column
+-- defaulted every new account to 'LMV, MCWG', which the intake screen then
+-- displayed back as fact — the same overclaim as asserting Aadhaar KYC. Signup
+-- records none, so the column has to allow it.
+ALTER TABLE citizens ALTER COLUMN vehicle_classes DROP NOT NULL;
+ALTER TABLE citizens ALTER COLUMN vehicle_classes DROP DEFAULT;
+
+-- What the citizen is applying FOR, which is not what they already hold. The
+-- class also decides whether a medical certificate is needed, so it has to be
+-- answered before the application exists rather than assumed from the account.
+ALTER TABLE applications ADD COLUMN IF NOT EXISTS vehicle_classes TEXT;

@@ -9,8 +9,8 @@ const router = express.Router();
 // derived from its pincode rather than stored by hand, so the jurisdiction
 // rule is exercised for real in the demo.
 const DEMO_EKYC = {
-  name: 'Ramesh Kumar',
-  dob: '1978-04-12',
+  name: 'Tarun Kesava Menon',
+  dob: '1999-06-14',
   state: 'Telangana',
   address: 'Plot 12, Habsiguda, Hyderabad',
   pincode: '500076',
@@ -60,8 +60,10 @@ router.post('/register', asyncHandler(async (req, res) => {
 
   if (existing.rows[0]) {
     const updated = await pool.query(
+      // vehicle_classes is cleared alongside the rest: re-registering is a fresh
+      // signup, and must not leave classes behind from whoever held the number.
       `UPDATE citizens
-       SET email=$1, name=$2, dob=$3, state=$4, address=$5, pincode=$6, rto=$7, dl_number=$8, aadhaar_kyc_verified=FALSE
+       SET email=$1, name=$2, dob=$3, state=$4, address=$5, pincode=$6, rto=$7, dl_number=$8, aadhaar_kyc_verified=FALSE, vehicle_classes=NULL
        WHERE id=$9 RETURNING *`,
       [cleanEmail, cleanName, dob, jurisdiction.state, cleanAddress, cleanPincode, jurisdiction.name, cleanDlNumber, existing.rows[0].id]
     );
@@ -69,8 +71,10 @@ router.post('/register', asyncHandler(async (req, res) => {
   }
 
   const inserted = await pool.query(
-    `INSERT INTO citizens (mobile_number, email, name, dob, state, address, pincode, rto, dl_number, aadhaar_kyc_verified)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE) RETURNING *`,
+    // vehicle_classes is left NULL on purpose: a new account holds no licence,
+    // so it has no classes to its name until one is issued.
+    `INSERT INTO citizens (mobile_number, email, name, dob, state, address, pincode, rto, dl_number, aadhaar_kyc_verified, vehicle_classes)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,NULL) RETURNING *`,
     [cleanMobile, cleanEmail, cleanName, dob, jurisdiction.state, cleanAddress, cleanPincode, jurisdiction.name, cleanDlNumber]
   );
   res.status(201).json({ citizen: inserted.rows[0] });

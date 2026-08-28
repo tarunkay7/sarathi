@@ -201,11 +201,14 @@ function computeForm1a(service, citizen){
   var eligibility = (service && service.eligibility) || {};
   var minAge = eligibility.form1aMinAge;
   var keywords = eligibility.transportCategoryKeywords || [];
-  var vehicleClasses = (citizen && citizen.vehicle_classes) || '';
+  // Classes being applied for take precedence over classes already held: on a
+  // new licence the account holds none, and it is the class you are asking for
+  // that decides whether a medical certificate is needed.
+  var vehicleClasses = session.applyingClasses || (citizen && citizen.vehicle_classes) || '';
   var isTransportCategory = keywords.some(function(word){ return vehicleClasses.indexOf(word) !== -1; });
 
   if(isTransportCategory){
-    return { required: true, reason: 'required, your licence covers a Transport Category vehicle' };
+    return { required: true, reason: 'required, this licence covers a Transport Category vehicle' };
   }
   var dob = citizen && citizen.dob;
   if(!dob || !minAge) return { required: false, reason: '' };
@@ -242,7 +245,12 @@ function renderIntakeScreen(){
   document.getElementById('intake-state-rto').textContent = session.citizen.state + ' · ' + session.citizen.rto;
   document.getElementById('intake-dl-number').textContent = session.citizen.dl_number || '—';
   document.getElementById('intake-dob').textContent = session.citizen.dob ? formatDate(session.citizen.dob) : '—';
-  document.getElementById('intake-vehicle-class').textContent = session.citizen.vehicle_classes || '—';
+  // On a new licence this is the answer to a question further down the panel,
+  // not a fact about the account — so say so rather than printing a dash.
+  document.getElementById('intake-vehicle-class').textContent =
+    session.applyingClasses
+    || session.citizen.vehicle_classes
+    || (serviceNeedsLearnerLicence(session.intakeServiceKey) ? 'You choose below' : 'None on record');
 
   // Read the stored flag rather than asserting "Verified" for everyone. Accounts
   // created through signup have not been through eKYC, and claiming otherwise on
@@ -251,10 +259,16 @@ function renderIntakeScreen(){
   var llField = document.getElementById('intake-ll-field');
   var llInput = document.getElementById('intake-ll-input');
   llField.hidden = !needsLl;
+  document.getElementById('intake-class-field').hidden = !needsLl;
   if(needsLl && !session.applicationId){
     llInput.value = '';
     llInput.readOnly = false;
     document.getElementById('intake-ll-error').hidden = true;
+    document.getElementById('intake-class-error').hidden = true;
+    document.querySelectorAll('[data-class-option]').forEach(function(box){
+      box.checked = false;
+      box.disabled = false;
+    });
   }
 
   var kycVerified = session.citizen.aadhaar_kyc_verified;
@@ -393,13 +407,14 @@ function getAvailableSlotDates(){
   return CAL_AVAILABLE_DAYS.map(function(day){ return formatDate(new Date(CAL_YEAR, CAL_MONTH, day).toISOString()); });
 }
 
-async function createApplication(serviceKey, learnerLicenceNumber){
+async function createApplication(serviceKey, learnerLicenceNumber, vehicleClasses){
   var data = await api('/api/applications/service/' + serviceKey);
   session.service = data.service;
   var created = await api('/api/applications', { method:'POST', body:{
     citizenId: session.citizen.id,
     serviceKey: serviceKey,
-    learnerLicenceNumber: learnerLicenceNumber || null
+    learnerLicenceNumber: learnerLicenceNumber || null,
+    vehicleClasses: vehicleClasses || null
   }});
   session.applicationId = created.application.id;
   session.referenceCode = created.application.reference_code;
@@ -415,6 +430,7 @@ async function startIntake(serviceKey){
   // The permanent licence needs a number the citizen has to type, and the
   // server will not create the application without it — so for that service the
   // row is created when they confirm step 1, not when they pick the card.
+  session.applyingClasses = null;
   if(serviceNeedsLearnerLicence(serviceKey)){
     var data = await api('/api/applications/service/' + serviceKey);
     session.service = data.service;
@@ -435,8 +451,10 @@ async function completeIntakeDetails(){
 
   var input = document.getElementById('intake-ll-input');
   var errorEl = document.getElementById('intake-ll-error');
+  var classErrorEl = document.getElementById('intake-class-error');
   var value = input.value.trim().replace(/\s+/g, ' ').toUpperCase();
   errorEl.hidden = true;
+  classErrorEl.hidden = true;
 
   if(value.length < 6){
     errorEl.textContent = "Enter the number printed on your learner's licence.";
@@ -445,12 +463,25 @@ async function completeIntakeDetails(){
     return false;
   }
 
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('[data-class-option]'));
+  var classes = boxes.filter(function(b){ return b.checked; }).map(function(b){ return b.value; }).join(', ');
+  if(!classes){
+    classErrorEl.textContent = 'Choose at least one vehicle class you are applying for.';
+    classErrorEl.hidden = false;
+    return false;
+  }
+
   try{
-    await createApplication(session.intakeServiceKey, value);
+    // Set before creating so the checklist rendered on the next step already
+    // reflects the classes chosen, including any medical certificate they add.
+    session.applyingClasses = classes;
+    await createApplication(session.intakeServiceKey, value, classes);
     input.value = value;
     input.readOnly = true;
+    boxes.forEach(function(b){ b.disabled = true; });
     return true;
   } catch(err){
+    session.applyingClasses = null;
     errorEl.textContent = err.message;
     errorEl.hidden = false;
     return false;
@@ -1166,10 +1197,10 @@ async function handleAction(action, el){
       digilockerStatus.innerHTML = '<div class="digilocker-fetching"><span class="fetch-spinner" aria-hidden="true"></span><span><strong>Fetching your details…</strong><br>This may take a few seconds.</span></div>';
       await delay(5000);
 
-      document.getElementById('signup-name').value = 'Ramesh Kumar';
-      document.getElementById('signup-email').value = 'ramesh.kumar@example.com';
+      document.getElementById('signup-name').value = 'Tarun Kesava Menon';
+      document.getElementById('signup-email').value = 'tarun.menon@example.com';
       document.getElementById('signup-mobile').value = session.signupMobile;
-      document.getElementById('signup-dob').value = '1978-04-12';
+      document.getElementById('signup-dob').value = '1999-06-14';
       document.getElementById('signup-pincode').value = '500076';
       document.getElementById('signup-address').value = 'Plot 12, Habsiguda, Hyderabad, Telangana';
 

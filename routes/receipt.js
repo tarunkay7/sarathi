@@ -122,12 +122,13 @@ function buildReceiptHtml(data) {
     ${row('Date of birth', formatDate(citizen.dob))}
     ${row('Mobile', maskMobile(citizen.mobile_number))}
     ${row('Address on record', citizen.address)}
-    ${row('Licence class', citizen.vehicle_classes)}
+    ${row('Licence class', application.vehicle_classes || citizen.vehicle_classes)}
   </table>
 
   <h2>Service</h2>
   <table class="kv">
     ${row('Applied for', `${application.service_title} (${application.form_number})`)}
+    ${application.learner_licence_number ? row("Learner's licence", application.learner_licence_number) : ''}
     ${row('Jurisdiction', `RTO ${rto ? rto.name : citizen.rto}, ${citizen.state}`)}
     ${row('Submitted on', formatDate(application.created_at))}
     ${row('Expected completion', formatDate(application.expected_by))}
