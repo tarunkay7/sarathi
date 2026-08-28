@@ -36,7 +36,8 @@ function delay(ms){ return new Promise(function(resolve){ setTimeout(resolve, ms
 
 async function syncAndShowDashboard(){
   showScreen('screen-syncing');
-  await Promise.all([openDashboard(), delay(1400)]);
+  // Long enough to register that a sync happened, short enough not to be a wait.
+  await Promise.all([openDashboard(), delay(500)]);
   showScreen('screen-dashboard');
 }
 
@@ -408,14 +409,19 @@ function getAvailableSlotDates(){
 }
 
 async function createApplication(serviceKey, learnerLicenceNumber, vehicleClasses){
-  var data = await api('/api/applications/service/' + serviceKey);
-  session.service = data.service;
-  var created = await api('/api/applications', { method:'POST', body:{
-    citizenId: session.citizen.id,
-    serviceKey: serviceKey,
-    learnerLicenceNumber: learnerLicenceNumber || null,
-    vehicleClasses: vehicleClasses || null
-  }});
+  // The POST resolves the service itself, so it does not wait on the GET. Run
+  // both at once rather than paying two round trips back to back.
+  var both = await Promise.all([
+    api('/api/applications/service/' + serviceKey),
+    api('/api/applications', { method:'POST', body:{
+      citizenId: session.citizen.id,
+      serviceKey: serviceKey,
+      learnerLicenceNumber: learnerLicenceNumber || null,
+      vehicleClasses: vehicleClasses || null
+    }})
+  ]);
+  session.service = both[0].service;
+  var created = both[1];
   session.applicationId = created.application.id;
   session.referenceCode = created.application.reference_code;
   // Uploads belong to an application, so a fresh one starts with none.
@@ -522,7 +528,7 @@ async function processPayment(method, delayMs, onTick){
     var secs = 0;
     tick = setInterval(function(){ secs++; onTick(secs); }, 1000);
   }
-  await new Promise(function(resolve){ setTimeout(resolve, delayMs || 1200); });
+  await new Promise(function(resolve){ setTimeout(resolve, delayMs || 600); });
   if(tick) clearInterval(tick);
 
   var confirmed = await api('/api/payments/' + created.payment.id + '/confirm', { method:'POST' });
@@ -538,7 +544,9 @@ async function runPayment(delay){
     (delay ? '<p id="pay-timer">Awaiting bank confirmation — 0s</p>' : '');
 
   try{
-    await processPayment(selectedPaymentMethod(), delay ? 4200 : 1200, function(secs){
+    // 4200 is the deliberate "slow bank confirmation" demo and stays slow on
+    // purpose; the normal path should not make anyone wait to watch a spinner.
+    await processPayment(selectedPaymentMethod(), delay ? 4200 : 600, function(secs){
       var t = document.getElementById('pay-timer');
       if(t) t.textContent = 'Awaiting bank confirmation — ' + secs + 's';
     });
@@ -1233,8 +1241,10 @@ async function handleAction(action, el){
       verifyOtpButton.textContent = 'Verified';
       document.getElementById('signup-aadhaar-otp').hidden = true;
       digilockerStatus.hidden = false;
-      digilockerStatus.innerHTML = '<div class="digilocker-fetching"><span class="fetch-spinner" aria-hidden="true"></span><span><strong>Fetching your details…</strong><br>This may take a few seconds.</span></div>';
-      await delay(5000);
+      digilockerStatus.innerHTML = '<div class="digilocker-fetching"><span class="fetch-spinner" aria-hidden="true"></span><span><strong>Fetching your details…</strong><br>Reading your Aadhaar profile from DigiLocker.</span></div>';
+      // A real eKYC round trip is not instant, so the fetch is paced rather than
+      // faked away — but five seconds was theatre the citizen had to sit through.
+      await delay(1200);
 
       document.getElementById('signup-name').value = 'Tarun Kesava Menon';
       document.getElementById('signup-email').value = 'tarun.menon@example.com';
