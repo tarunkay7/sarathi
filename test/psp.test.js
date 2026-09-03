@@ -41,12 +41,12 @@ test('a webhook body is normalised into our event shape', () => {
   const event = psp.eventFromWebhook({
     event: 'payment.captured',
     payload: { payment: { entity: {
-      id: 'pay_ABC', order_id: 'order_XYZ', method: 'upi', error_description: null,
+      id: 'pay_ABC', order_id: 'order_XYZ', method: 'upi', error_description: null, amount: 40000,
     } } },
   });
   assert.deepEqual(event, {
     type: 'payment.captured', orderId: 'order_XYZ',
-    paymentId: 'pay_ABC', method: 'upi', reason: null,
+    paymentId: 'pay_ABC', method: 'upi', reason: null, amount: 40000,
   });
 });
 

@@ -70,52 +70,127 @@ function findLive(column, id) {
 
 // The only function that writes a payment's resolution. The webhook and the
 // reconcile both come through here, so they cannot reach different conclusions
-// about the same row. The UPDATE is guarded on the status we read, so two
-// callers racing produce one winner and the loser simply re-reads.
+// about the same row. Everything runs in one transaction: a half-applied
+// settlement is worse than a retried one, because Razorpay's redelivery would
+// find the row already 'paid' and skip the side effects for good.
 async function settle(payment, event) {
   const change = applyPaymentEvent({ payment, event });
   if (!change) return payment;
 
-  // bank_ref is the gateway's own payment id -- the column the original schema
-  // reserved for exactly this and the mock flow never filled. COALESCE keeps a
-  // value we already hold if a later event arrives without one.
-  const updated = await pool.query(
-    `UPDATE payments
-        SET status = $2,
-            bank_ref = COALESCE($3, bank_ref),
-            method = COALESCE($4, method),
-            failure_reason = CASE WHEN $2 = 'failed' THEN $5 ELSE NULL END,
-            confirmed_at = CASE WHEN $2 = 'paid' THEN now() ELSE confirmed_at END
-      WHERE id = $1 AND status = $6
-      RETURNING *`,
-    [payment.id, change.status, change.psp_payment_id, change.method, change.reason, payment.status]
-  );
-
-  if (!updated.rows[0]) {
-    const fresh = await pool.query('SELECT * FROM payments WHERE id = $1', [payment.id]);
-    return fresh.rows[0] || payment;
+  // Order-id linkage alone would let a capture for the wrong amount settle a
+  // fee it does not cover. Refuse rather than guess; the row stays as it was
+  // and the mismatch is loud in the log.
+  if (change.status === 'paid' && event.amount != null
+      && Number(event.amount) !== payment.amount_cents) {
+    console.error(
+      `[payments] amount mismatch on payment ${payment.id}: captured ${event.amount}, ` +
+      `expected ${payment.amount_cents}. Not settling.`
+    );
+    return payment;
   }
 
-  const settled = updated.rows[0];
-  if (change.status === 'paid') await onPaid(settled);
-  return settled;
+  const column = payment.application_id ? 'application_id' : 'challan_id';
+  const payableId = payment.application_id || payment.challan_id;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    if (change.status === 'paid') {
+      // A capture is money that actually moved, so it outranks every attempt
+      // that did not. Without this the partial unique index rejects the one
+      // payment that really happened: a citizen who dismissed the popup and
+      // retried leaves a live second row, and the first payment's capture
+      // then collides with it.
+      await client.query(
+        `UPDATE payments
+            SET status = 'failed',
+                failure_reason = 'Superseded by an earlier payment that completed.'
+          WHERE ${column} = $1 AND id <> $2 AND status = 'reconciling'`,
+        [payableId, payment.id]
+      );
+
+      // A different row already settled this payable, so this is a second real
+      // charge rather than a redelivery of the first. The citizen has been
+      // debited twice. Park it where a human can see it instead of discarding
+      // a capture we cannot represent.
+      const alreadyPaid = await client.query(
+        `SELECT id FROM payments WHERE ${column} = $1 AND id <> $2 AND status = 'paid' LIMIT 1`,
+        [payableId, payment.id]
+      );
+      if (alreadyPaid.rows[0]) {
+        const parked = await client.query(
+          `UPDATE payments
+              SET status = 'refund_in_progress',
+                  bank_ref = COALESCE($2, bank_ref),
+                  method = COALESCE($3, method),
+                  failure_reason = $4
+            WHERE id = $1 AND status = $5
+            RETURNING *`,
+          [
+            payment.id, change.psp_payment_id, change.method,
+            `Captured after payment ${alreadyPaid.rows[0].id} had already settled this payable. Needs a refund.`,
+            payment.status,
+          ]
+        );
+        await client.query('COMMIT');
+        console.error(
+          `[payments] DOUBLE CAPTURE: payment ${payment.id} captured while ` +
+          `${alreadyPaid.rows[0].id} was already paid for the same payable. Refund required.`
+        );
+        return parked.rows[0] || payment;
+      }
+    }
+
+    // Compare-and-set on the status we read, so two writers racing produce one
+    // winner and the loser re-reads instead of clobbering.
+    const updated = await client.query(
+      `UPDATE payments
+          SET status = $2,
+              bank_ref = COALESCE($3, bank_ref),
+              method = COALESCE($4, method),
+              failure_reason = CASE WHEN $2 = 'failed' THEN $5 ELSE NULL END,
+              confirmed_at = CASE WHEN $2 = 'paid' THEN now() ELSE confirmed_at END
+        WHERE id = $1 AND status = $6
+        RETURNING *`,
+      [payment.id, change.status, change.psp_payment_id, change.method, change.reason, payment.status]
+    );
+
+    if (!updated.rows[0]) {
+      await client.query('ROLLBACK');
+      const fresh = await pool.query('SELECT * FROM payments WHERE id = $1', [payment.id]);
+      return fresh.rows[0] || payment;
+    }
+
+    const settled = updated.rows[0];
+    if (change.status === 'paid') await onPaid(client, settled);
+    await client.query('COMMIT');
+    return settled;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(function () {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
-// Both status updates are guarded on the state they expect, so a replayed
-// capture cannot regress an approved application or re-stamp a paid challan.
-async function onPaid(payment) {
+// Runs inside settle()'s transaction on the same client, so the status write
+// and these side effects commit or roll back together. Both updates are
+// guarded on the state they expect, so a redelivery cannot regress an approved
+// application or re-stamp a settled challan.
+async function onPaid(client, payment) {
   if (payment.application_id) {
-    await pool.query(
+    await client.query(
       `UPDATE applications SET status = 'under_review' WHERE id = $1 AND status = 'details'`,
       [payment.application_id]
     );
-    await pool.query(
+    await client.query(
       `INSERT INTO timeline_events (application_id, label) VALUES ($1, $2)`,
       [payment.application_id, `Payment confirmed (${rupees(payment.amount_cents)})`]
     );
   }
   if (payment.challan_id) {
-    await pool.query(
+    await client.query(
       `UPDATE challans SET status = 'paid', paid_at = now() WHERE id = $1 AND status = 'pending'`,
       [payment.challan_id]
     );
@@ -180,15 +255,24 @@ router.post('/order', asyncHandler(async (req, res) => {
     );
     payment = inserted.rows[0];
   } catch (err) {
-    // 23505 is unique_violation. ON CONFLICT is avoided here on purpose:
-    // arbiter inference against two partial indexes with IS NOT NULL
-    // predicates is fragile, and catching the violation is unambiguous.
-    if (err.code !== '23505') throw err;
+    // 23505 is unique_violation, but three different indexes can raise it here.
+    // Only the two live-payment indexes mean "a charge is already in flight";
+    // a psp_order_id collision is a genuine fault and must not be reported to
+    // the citizen as a successful reuse.
+    const liveIndexes = ['payments_one_live_per_application', 'payments_one_live_per_challan'];
+    if (err.code !== '23505' || !liveIndexes.includes(err.constraint)) throw err;
+
     const winner = await findLive(payable.column, payable.id);
+    if (!winner.rows[0]) {
+      // The racing row left the live predicate between the violation and this
+      // read. Returning 200 with no payment would make the client throw on
+      // created.payment.id.
+      return res.status(409).json({ error: 'That payment just changed state. Please try again.' });
+    }
     return res.json({
       payment: winner.rows[0], keyId: psp.keyId(),
-      orderId: winner.rows[0] && winner.rows[0].psp_order_id,
-      amountCents: payable.amountCents, reused: true,
+      orderId: winner.rows[0].psp_order_id,
+      amountCents: winner.rows[0].amount_cents, reused: true,
     });
   }
 

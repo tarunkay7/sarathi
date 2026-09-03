@@ -64,13 +64,14 @@ function verifyWebhookSignature(rawBody, signature) {
 function eventFromWebhook(body) {
   const type = (body && body.event) || null;
   const entity = body && body.payload && body.payload.payment && body.payload.payment.entity;
-  if (!entity) return { type, orderId: null, paymentId: null, method: null, reason: null };
+  if (!entity) return { type, orderId: null, paymentId: null, method: null, reason: null, amount: null };
   return {
     type,
     orderId: entity.order_id || null,
     paymentId: entity.id || null,
     method: entity.method || null,
     reason: entity.error_description || null,
+    amount: entity.amount,
   };
 }
 
@@ -80,7 +81,10 @@ function eventFromWebhook(body) {
 function eventFromPayment(payment) {
   if (!payment) return null;
   if (payment.status === 'captured') {
-    return { type: 'payment.captured', paymentId: payment.id, method: payment.method || null, reason: null };
+    return {
+      type: 'payment.captured', paymentId: payment.id, method: payment.method || null,
+      reason: null, amount: payment.amount,
+    };
   }
   if (payment.status === 'failed') {
     return {
@@ -88,6 +92,7 @@ function eventFromPayment(payment) {
       paymentId: payment.id,
       method: payment.method || null,
       reason: payment.error_description || null,
+      amount: payment.amount,
     };
   }
   return null;
