@@ -185,10 +185,14 @@ async function main() {
     ['9000000009']
   );
   if (demo.rows[0]) {
+    // A seed's job is to restore the fixture, not just create it once. Paying
+    // this challan during a demo or a verification run must not permanently
+    // consume it — the next seed has to put it back to pending, not skip it.
     await pool.query(
       `INSERT INTO challans (challan_number, citizen_id, offence, location, issued_on, amount_cents, status)
        VALUES ($1,$2,$3,$4,$5,$6,'pending')
-       ON CONFLICT (challan_number) DO NOTHING`,
+       ON CONFLICT (challan_number) DO UPDATE
+         SET status = 'pending', paid_at = NULL`,
       ['CH-2026-8841', demo.rows[0].id, 'Signal violation', 'Uppal X Roads, Hyderabad', '2026-08-12', 100000]
     );
     console.log('Seeded 1 pending challan for the demo account.');
