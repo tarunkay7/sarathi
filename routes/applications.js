@@ -10,6 +10,13 @@ function makeReferenceCode() {
   return 'TS-DL-2026-' + Math.floor(1000 + Math.random() * 9000);
 }
 
+// Grouped the Indian way, matching the attention panel. Every service fee here
+// is under ₹1,000, so the challan is the only amount where the grouping shows
+// at all — and it is the amount the blocked-application error puts on screen.
+function rupees(cents) {
+  return '₹' + Math.round(cents / 100).toLocaleString('en-IN');
+}
+
 // A rejected embed URL still renders inside the iframe as Google's own error
 // page, and the browser cannot detect that cross-origin. So probe the Embed
 // API once here and withhold embedUrl when it is unavailable, letting the
@@ -117,7 +124,7 @@ router.post('/', asyncHandler(async (req, res) => {
     const challan = await pendingChallan(citizenId);
     if (challan) {
       return res.status(409).json({
-        error: `Challan ${challan.challan_number} for ₹${Math.round(challan.amount_cents / 100)} is still pending. Clear it and this application can go ahead.`,
+        error: `Challan ${challan.challan_number} for ${rupees(challan.amount_cents)} is still pending. Clear it and this application can go ahead.`,
       });
     }
   }
