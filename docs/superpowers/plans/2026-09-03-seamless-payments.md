@@ -51,10 +51,11 @@ Task 4 deletes `POST /api/payments/:id/confirm`, which `public/app.js:534` still
 
 **Files:**
 - Modify: `db/schema.sql` (append at end, after the `ALTER TABLE grievances ADD COLUMN IF NOT EXISTS source TEXT;` line)
+- Modify: `db/README.md:60` — the `bank_ref` row currently reads "reserved for a real gateway reference, unused by the mock flow", which stops being true
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `payments.challan_id`, `payments.psp_order_id`, `payments.psp_payment_id`; nullable `payments.application_id` and `payments.method`; indexes `payments_one_live_per_application`, `payments_one_live_per_challan`, `payments_psp_order`; constraint `payments_one_payable`.
+- Produces: `payments.challan_id`, `payments.psp_order_id`, `payments.failure_reason`; nullable `payments.application_id` and `payments.method`; indexes `payments_one_live_per_application`, `payments_one_live_per_challan`, `payments_psp_order`; constraint `payments_one_payable`. **The gateway's payment id is stored in the pre-existing `bank_ref` column — there is deliberately no `psp_payment_id` column.**
 
 - [ ] **Step 1: Append the migration**
 
@@ -68,9 +69,12 @@ Append to `db/schema.sql`:
 -- Razorpay reports that on capture.
 ALTER TABLE payments ALTER COLUMN application_id DROP NOT NULL;
 ALTER TABLE payments ALTER COLUMN method         DROP NOT NULL;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS challan_id     INTEGER REFERENCES challans(id);
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS psp_order_id   TEXT;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS psp_payment_id TEXT;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS challan_id      INTEGER REFERENCES challans(id);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS psp_order_id    TEXT;
+-- Why the gateway said no, so the citizen reads "Card declined" rather than a
+-- generic failure. The gateway's payment id goes in the existing bank_ref,
+-- which was reserved for exactly that and never populated by the mock flow.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS failure_reason  TEXT;
 
 -- ADD CONSTRAINT has no IF NOT EXISTS, and this file is re-run on every
 -- deploy, so the second migration would fail without this wrapper.
@@ -103,7 +107,21 @@ Expected: `Schema applied.`
 Run: `npm run db:migrate`
 Expected: `Schema applied.` again, with no error. If this fails, the `DO $$` wrapper is wrong.
 
-- [ ] **Step 4: Verify the shape changed and existing rows survived**
+- [ ] **Step 4: Correct the column documentation**
+
+In `db/README.md:60`, replace the `bank_ref` row:
+
+```
+| `bank_ref` | text | reserved for a real gateway reference, unused by the mock flow |
+```
+
+with:
+
+```
+| `bank_ref` | text | the payment gateway's own payment id (`pay_…`), set when a payment is captured |
+```
+
+- [ ] **Step 5: Verify the shape changed and existing rows survived**
 
 Run:
 
@@ -118,12 +136,12 @@ require("dotenv").config();const p=require("./db/pool");
  process.exit(0);})();'
 ```
 
-Expected: `challan_id`, `psp_order_id`, `psp_payment_id` present; `application_id` and `method` now `YES` (nullable); `rows preserved: 5`.
+Expected: `challan_id`, `psp_order_id`, `failure_reason` present; **no `psp_payment_id`**; `application_id` and `method` now `YES` (nullable); `rows preserved: 5`.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add db/schema.sql
+git add db/schema.sql db/README.md
 git commit -m "Let one payments ledger cover fees and challans"
 ```
 
@@ -640,16 +658,19 @@ async function settle(payment, event) {
   const change = applyPaymentEvent({ payment, event });
   if (!change) return payment;
 
+  // bank_ref is the gateway's own payment id -- the column the original schema
+  // reserved for exactly this and the mock flow never filled. COALESCE keeps a
+  // value we already hold if a later event arrives without one.
   const updated = await pool.query(
     `UPDATE payments
         SET status = $2,
-            psp_payment_id = COALESCE($3, psp_payment_id),
-            method = COALESCE($4, method),
             bank_ref = COALESCE($3, bank_ref),
+            method = COALESCE($4, method),
+            failure_reason = CASE WHEN $2 = 'failed' THEN $5 ELSE NULL END,
             confirmed_at = CASE WHEN $2 = 'paid' THEN now() ELSE confirmed_at END
-      WHERE id = $1 AND status = $5
+      WHERE id = $1 AND status = $6
       RETURNING *`,
-    [payment.id, change.status, change.psp_payment_id, change.method, payment.status]
+    [payment.id, change.status, change.psp_payment_id, change.method, change.reason, payment.status]
   );
 
   if (!updated.rows[0]) {
@@ -893,8 +914,8 @@ git commit -m "Let only a signed webhook say a payment succeeded"
 ### Task 5: The checkout popup
 
 **Files:**
-- Modify: `public/index.html` — add checkout script; add pay panel to `intake-panel-3` before the `intake-nav` at line 555; change that nav button; delete `screen-pay` (lines 563-600); rewrite the disclaimer at line 723
-- Modify: `public/app.js` — delete `renderPayScreen` (497-508), `selectedPaymentMethod` (510-514), `processPayment` (516-536), `runPayment` (538-564); rewrite `payChallan` (827-841); replace the `goto-pay` / `pay-now` / `pay-delay-demo` arms (1455-1469)
+- Modify: `public/index.html` — add the checkout script; delete the `screen-pay` section; replace the `intake-nav` block containing `goto-pay` with an inline pay panel plus a `pay-now` button; correct the `foot-meta` disclaimer
+- Modify: `public/app.js` — delete `renderPayScreen`, `selectedPaymentMethod`, `processPayment`, `runPayment`; add `openCheckout` and `pollPayment` plus a new `runPayment`; rewrite `payChallan`; replace the `goto-pay` / `pay-now` / `pay-delay-demo` arms with one `pay-now` arm
 - Modify: `public/styles.css` — pay panel styling
 
 **Interfaces:**
@@ -911,36 +932,57 @@ In `public/index.html`, immediately before the closing `</body>`, before the exi
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 ```
 
-- [ ] **Step 2: Add the pay panel to intake step 3**
+> **Locate every edit below by its quoted content, never by line number.** Each
+> edit shifts the ones after it, so any line number stated here would already be
+> stale by the time you reached it. `<div class="intake-nav">` occurs **twice** in
+> this file, so it is not a usable anchor on its own — the block quoted below is
+> unique because it contains `goto-pay`.
 
-In `public/index.html`, insert immediately before the `<div class="intake-nav">` at line 555:
+- [ ] **Step 2: Delete the payment page**
+
+In `public/index.html`, delete the `<!-- PAY -->` comment and the entire
+`<section class="screen" id="screen-pay">` element it labels, up to and including
+the `</section>` that closes it. That section is the only one with that id, and
+the element immediately following it is the `<!-- TRACK -->` comment — so after
+this edit, `<!-- TRACK -->` should directly follow the `</section>` that closes
+`screen-apply`.
+
+Verify with:
+
+```bash
+grep -c 'screen-pay' public/index.html
+```
+
+Expected: `0`.
+
+- [ ] **Step 3: Replace the step-3 nav with an inline pay panel**
+
+In `public/index.html`, replace this exact block (unique — it is the only place
+`goto-pay` appears):
+
+```html
+      <div class="intake-nav">
+        <button class="btn ghost" data-action="intake-back">Back</button>
+        <button class="btn primary" data-action="goto-pay">Proceed to payment</button>
+      </div>
+```
+
+with:
 
 ```html
       <div class="pay-inline" id="intake-pay">
         <p class="pay-inline-assure">Every payment attempt is protected — you cannot be charged twice.</p>
         <div id="pay-status" hidden aria-live="polite"></div>
       </div>
-```
-
-- [ ] **Step 3: Change the nav button from a page hop to a popup**
-
-In `public/index.html`, replace the line 557 button:
-
-```html
-        <button class="btn primary" data-action="goto-pay">Proceed to payment</button>
-```
-
-with:
-
-```html
+      <div class="intake-nav">
+        <button class="btn ghost" data-action="intake-back">Back</button>
         <button class="btn primary pay-trigger" data-action="pay-now" id="pay-button">Pay securely</button>
+      </div>
 ```
 
-- [ ] **Step 4: Delete the payment page and correct the disclaimer**
+- [ ] **Step 4: Correct the disclaimer**
 
-Delete `public/index.html` lines 562-600 inclusive — the blank line, the `<!-- PAY -->` comment, and the whole `<section class="screen" id="screen-pay">` through its `</section>`.
-
-Then in the `<p class="foot-meta">` at line 723 (now shifted up), replace the sentence:
+In the `<p class="foot-meta">` paragraph (search for `foot-meta`; it occurs once), replace the sentence:
 
 ```
 No real government official, system, OTP, or payment gateway is referenced or contacted.
@@ -954,7 +996,10 @@ No real government official, system, or OTP is referenced or contacted. Fee and 
 
 - [ ] **Step 5: Replace the client payment functions**
 
-In `public/app.js`, delete `renderPayScreen`, `selectedPaymentMethod`, `processPayment`, and `runPayment` (lines 497-564) and put in their place:
+In `public/app.js`, delete four contiguous functions — from the line
+`function renderPayScreen(){` through the closing brace of `runPayment`, covering
+`renderPayScreen`, `selectedPaymentMethod`, `processPayment`, and `runPayment` —
+and put in their place:
 
 ```js
 // The server decides the amount and the order; this only opens the popup and
@@ -1048,8 +1093,12 @@ async function runPayment(){
       return;
     }
 
+    // The gateway's own reason when it gave one ("Card declined"), rather than
+    // a generic failure the citizen cannot act on.
     status.hidden = false;
-    status.innerHTML = '<p class="error-text">This payment did not complete, so nothing was charged. You can try again.</p>';
+    status.innerHTML = '<p class="error-text">' +
+      escapeHtml(payment.failure_reason || 'This payment did not complete.') +
+      ' Nothing was charged, and you can try again.</p>';
     document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
   } catch(err){
     status.hidden = false;
@@ -1061,10 +1110,10 @@ async function runPayment(){
 
 - [ ] **Step 6: Set the pay button's amount where the fee is already known**
 
-`renderPayScreen` used to label the button, and it is gone. The fee is already
-rendered at `public/app.js:302`, inside a function where the service is in
-scope as the local `service` — not `session.service`. Insert immediately after
-that line:
+`renderPayScreen` used to label the button, and it is gone. Find the single line
+that sets the fee (search for `intake-fee-amount`); it sits inside a function
+where the service is in scope as the local `service` — **not** `session.service`.
+Insert immediately after it:
 
 ```js
   var payBtn = document.getElementById('pay-button');
@@ -1073,7 +1122,9 @@ that line:
 
 - [ ] **Step 7: Route challan payment through the popup**
 
-Replace `payChallan` in `public/app.js` (lines 827-841):
+Replace the whole `payChallan` function in `public/app.js` — search for
+`async function payChallan` — including the comment block directly above it,
+which describes the old instant-clear behaviour:
 
 ```js
 // A challan is a payable like any other now: same popup, same webhook, same
@@ -1100,7 +1151,12 @@ async function payChallan(btn){
 
 - [ ] **Step 8: Replace the action arms**
 
-In `public/app.js`, delete the whole `else if(action === 'goto-pay'){ ... }` block (lines 1455-1467) and the `pay-delay-demo` arm, keeping the validation that used to gate the page hop:
+In `public/app.js`, find the arm beginning `else if(action === 'goto-pay'){` (that
+string occurs once) and delete that whole block along with the two one-line arms
+directly below it — `else if(action === 'pay-now'){ await runPayment(false); }`
+and `else if(action === 'pay-delay-demo'){ await runPayment(true); }`. Replace all
+three with the single arm below, which keeps the slot and road-safety validation
+that used to gate the page hop:
 
 ```js
     else if(action === 'pay-now'){
@@ -1155,8 +1211,8 @@ git commit -m "Pay in a popup from the summary instead of a page of our own"
 ### Task 6: Retire the divergent challan path
 
 **Files:**
-- Modify: `routes/challans.js` — delete `POST /:id/pay` (lines 39-54)
-- Modify: `routes/attention.js` — challan query gains `payment_status` (lines 144-147); `computeAttention` challan branch (lines 35-45)
+- Modify: `routes/challans.js` — delete the `POST /:id/pay` handler and its comment
+- Modify: `routes/attention.js` — the router's challan query gains a `payment_status` subquery; `computeAttention`'s challan loop gains a reconciling branch
 - Modify: `test/attention.test.js` — add the reconciling case
 
 **Interfaces:**
@@ -1210,9 +1266,14 @@ test('a challan with a failed payment behind it can still be paid', () => {
 Run: `npm test`
 Expected: FAIL — the reconciling challan still returns `severity: 'act'` with an action.
 
+> **Locate each edit by content, not line number.** Step 3 replaces a loop with a
+> longer one, which shifts everything below it — including Step 4's target.
+
 - [ ] **Step 3: Update the challan branch**
 
-In `routes/attention.js`, replace the loop at lines 35-45:
+In `routes/attention.js`, replace the whole `for (const challan of challans) {` loop
+(it occurs once, and currently begins with `if (challan.status !== 'pending') continue;`)
+with:
 
 ```js
   for (const challan of challans) {
@@ -1247,7 +1308,8 @@ In `routes/attention.js`, replace the loop at lines 35-45:
 
 - [ ] **Step 4: Feed the router's challan query the same field applications already get**
 
-In `routes/attention.js`, replace the challan query at lines 144-147:
+In `routes/attention.js`, inside the router handler, replace the challan query —
+search for `const challans = await pool.query(`, which occurs once:
 
 ```js
   const challans = await pool.query(
@@ -1263,7 +1325,10 @@ In `routes/attention.js`, replace the challan query at lines 144-147:
 
 - [ ] **Step 5: Delete the challan pay endpoint**
 
-In `routes/challans.js`, delete lines 39-54 — the comment block and the whole `router.post('/:id/pay', ...)` handler. `pendingChallan`, `BLOCKED_SERVICES`, and the `GET /citizen/:id` route all stay exactly as they are.
+In `routes/challans.js`, delete the whole `router.post('/:id/pay', ...)` handler
+(search for `'/:id/pay'`, which occurs once) together with the two-line comment
+block directly above it that begins "Not a row in payments". `pendingChallan`,
+`BLOCKED_SERVICES`, and the `GET /citizen/:id` route all stay exactly as they are.
 
 - [ ] **Step 6: Run the tests to verify they pass**
 
@@ -1350,11 +1415,11 @@ Expected: the popup closes; the attention item briefly reads "Payment received, 
 ```bash
 node -e '
 require("dotenv").config();const p=require("./db/pool");
-p.query("SELECT id,challan_id,application_id,status,method,psp_order_id,psp_payment_id,confirmed_at FROM payments ORDER BY id DESC LIMIT 3")
+p.query("SELECT id,challan_id,application_id,status,method,psp_order_id,bank_ref,failure_reason,confirmed_at FROM payments ORDER BY id DESC LIMIT 3")
  .then(r=>{r.rows.forEach(x=>console.log(JSON.stringify(x)));process.exit(0)});'
 ```
 
-Expected: the newest row has `status: paid`, a `psp_payment_id` starting `pay_`, a `method`, and a `confirmed_at`. A `psp_payment_id` proves Razorpay supplied it — the browser has no way to set that field.
+Expected: the newest row has `status: paid`, a `bank_ref` starting `pay_`, a `method`, a `confirmed_at`, and a null `failure_reason`. The `bank_ref` is the proof: it is Razorpay's own payment id, and the browser has no endpoint that can set it.
 
 - [ ] **Step 8: Verify a dismissal leaves the payable retryable**
 
