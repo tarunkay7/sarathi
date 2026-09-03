@@ -200,3 +200,26 @@ ALTER TABLE applications ADD COLUMN IF NOT EXISTS vehicle_classes TEXT;
 -- own words shown back to them, stay in their language while the officer's
 -- summary stays English.
 ALTER TABLE grievances ADD COLUMN IF NOT EXISTS language TEXT;
+
+-- A licence has an expiry, and a proactive service is built around it. The
+-- dashboard was showing a hardcoded date, which is the one number this whole
+-- feature depends on. Nullable: an account that holds no licence has no expiry.
+ALTER TABLE citizens ADD COLUMN IF NOT EXISTS dl_expires_on DATE;
+
+-- Seeded, not fetched. A real deployment would read these from e-Challan or
+-- VAHAN; this prototype stores them so the blocker has something real to point
+-- at rather than the model inventing a fine.
+CREATE TABLE IF NOT EXISTS challans (
+  id SERIAL PRIMARY KEY,
+  challan_number TEXT UNIQUE NOT NULL,
+  citizen_id INTEGER NOT NULL REFERENCES citizens(id),
+  offence TEXT NOT NULL,
+  location TEXT,
+  issued_on DATE NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','paid')),
+  paid_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS challans_citizen_idx ON challans (citizen_id, status);

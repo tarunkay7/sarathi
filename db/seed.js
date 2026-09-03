@@ -176,6 +176,24 @@ async function main() {
     );
   }
   console.log(`Seeded ${services.length} services.`);
+
+  // The demo persona applies for a permanent licence, so the challan has to
+  // block that rather than a renewal. Attached by mobile number because ids
+  // differ between the local and deployed databases.
+  const demo = await pool.query(
+    'SELECT id FROM citizens WHERE mobile_number = $1',
+    ['9000000009']
+  );
+  if (demo.rows[0]) {
+    await pool.query(
+      `INSERT INTO challans (challan_number, citizen_id, offence, location, issued_on, amount_cents, status)
+       VALUES ($1,$2,$3,$4,$5,$6,'pending')
+       ON CONFLICT (challan_number) DO NOTHING`,
+      ['CH-2026-8841', demo.rows[0].id, 'Signal violation', 'Uppal X Roads, Hyderabad', '2026-08-12', 100000]
+    );
+    console.log('Seeded 1 pending challan for the demo account.');
+  }
+
   await pool.end();
 }
 
