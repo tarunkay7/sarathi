@@ -29,7 +29,28 @@ test('a pending challan is an act-now item naming the challan', () => {
   assert.equal(items[0].kind, 'challan_pending');
   assert.equal(items[0].severity, 'act');
   assert.match(items[0].title, /₹1,000/);
+  assert.match(items[0].detail, /issued 12 Aug 2026/);
   assert.equal(items[0].source, 'challan CH-2026-8841');
+});
+
+// node-pg returns DATE columns as JS Date objects, not strings — the string
+// fixture above never exercises that path. Without this, a formatter that
+// only handled strings would pass every test while printing a raw
+// "Wed Aug 12 2026 00:00:00 GMT+0530 (India Standard Time)" against the live
+// database.
+test('a pending challan issued as a Date object still reads as a plain date', () => {
+  const items = computeAttention({
+    citizen: citizen(),
+    applications: [],
+    challans: [{
+      id: 7, challan_number: 'CH-2026-8841', offence: 'Signal violation',
+      issued_on: new Date('2026-08-12'), amount_cents: 100000, status: 'pending',
+    }],
+    now: NOW,
+  });
+  assert.equal(items.length, 1);
+  assert.match(items[0].detail, /issued 12 Aug 2026/);
+  assert.doesNotMatch(items[0].detail, /GMT/);
 });
 
 test('a paid challan produces nothing', () => {

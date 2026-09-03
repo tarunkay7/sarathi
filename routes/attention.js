@@ -15,6 +15,12 @@ function rupees(cents) {
   return '₹' + Math.round(cents / 100).toLocaleString('en-IN');
 }
 
+// node-pg returns a DATE column as a JS Date, but fixtures/tests may pass a
+// plain date string — accept either so both shapes render the same way.
+function formatDate(value) {
+  return new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+}
+
 const SEVERITY_ORDER = { act: 0, soon: 1, info: 2 };
 
 function computeAttention({ citizen, applications = [], challans = [], now = new Date() }) {
@@ -26,7 +32,7 @@ function computeAttention({ citizen, applications = [], challans = [], now = new
       kind: 'challan_pending',
       severity: 'act',
       title: `${rupees(challan.amount_cents)} challan pending`,
-      detail: `${challan.offence}, issued ${challan.issued_on}. This blocks a new or renewed licence.`,
+      detail: `${challan.offence}, issued ${formatDate(challan.issued_on)}. This blocks a new or renewed licence.`,
       action: { label: `Pay ${rupees(challan.amount_cents)}`, type: 'pay-challan', id: challan.id },
       source: `challan ${challan.challan_number}`,
     });

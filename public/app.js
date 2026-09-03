@@ -775,7 +775,7 @@ function renderAttention(items){
         escapeHtml(item.action.label) + '</button>'
       : '';
     return '<div class="att att-' + escapeHtml(item.severity) + '">' +
-      '<div class="att-head"><span class="att-sev">' + ATTENTION_LABELS[item.severity] + '</span>' +
+      '<div class="att-head"><span class="att-sev">' + escapeHtml(ATTENTION_LABELS[item.severity] || item.severity) + '</span>' +
       '<span class="att-title">' + escapeHtml(item.title) + '</span></div>' +
       '<p class="att-detail">' + escapeHtml(item.detail) + '</p>' +
       '<div class="att-foot"><span class="att-source">Because: ' + escapeHtml(item.source) + '</span>' + action + '</div>' +
@@ -787,6 +787,26 @@ async function loadAttention(){
   var data = await api('/api/attention/citizen/' + session.citizen.id);
   session.attention = data.items;
   renderAttention(data.items);
+}
+
+// Same shape as downloadReceipt: disable and relabel before the await, but
+// always restore the button in a finally so a network drop or a 500 leaves a
+// retryable control instead of one stuck reading "Paying…" forever.
+async function payChallan(btn){
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Paying…';
+  try{
+    await api('/api/challans/' + btn.getAttribute('data-id') + '/pay', { method:'POST' });
+    await loadAttention();
+  } catch(err){
+    alert(err.message);
+  } finally {
+    // loadAttention() replaces this button's markup on success, so restoring
+    // it here is a no-op then and only matters on the failure path.
+    btn.disabled = false;
+    btn.textContent = original;
+  }
 }
 
 async function openDashboard(){
@@ -1466,13 +1486,7 @@ async function handleAction(action, el){
     else if(action === 'add-calendar'){ downloadIcs(); }
     else if(action === 'print-receipt'){ window.print(); }
     else if(action === 'download-receipt'){ await downloadReceipt(el); }
-    else if(action === 'pay-challan'){
-      var challanId = el.getAttribute('data-id');
-      el.disabled = true;
-      el.textContent = 'Paying…';
-      await api('/api/challans/' + challanId + '/pay', { method:'POST' });
-      await loadAttention();
-    }
+    else if(action === 'pay-challan'){ await payChallan(el); }
     else if(action === 'toggle-lang'){ document.body.classList.toggle('lang-hi'); }
     else if(action === 'font-inc'){ fontScale = Math.min(130, fontScale+10); applyFont(); }
     else if(action === 'font-dec'){ fontScale = Math.max(90, fontScale-10); applyFont(); }
