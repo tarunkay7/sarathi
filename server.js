@@ -36,7 +36,14 @@ app.use('/api/transcriptions', transcriptionRoutes);
 app.use('/api/challans', challanRoutes);
 app.use('/api/attention', attentionRoutes);
 
-app.use(express.static(path.join(__dirname, 'public')));
+// A citizen holding a stale app.js against a freshly deployed index.html gets
+// errors that look like the payment is broken when it is not — the old script
+// calls endpoints and reads elements this deploy removed. Revalidation is a
+// 304 on an unchanged file, so correctness costs almost nothing here.
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: true,
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+}));
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
