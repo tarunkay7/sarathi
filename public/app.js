@@ -300,6 +300,8 @@ function renderIntakeScreen(){
 
   document.getElementById('intake-fee-label').textContent = service.title + ' (' + service.form_number + ')';
   document.getElementById('intake-fee-amount').textContent = rupees(service.fee_cents);
+  var payBtn = document.getElementById('pay-button');
+  if(payBtn) payBtn.textContent = 'Pay ' + rupees(service.fee_cents) + ' securely';
   document.getElementById('intake-slot-section').hidden = !service.requires_slot;
   document.getElementById('intake-no-slot').hidden = !!service.requires_slot;
   document.getElementById('intake-fee-note').textContent =
@@ -494,71 +496,107 @@ async function completeIntakeDetails(){
   }
 }
 
-function renderPayScreen(){
-  var service = session.service;
-  document.getElementById('pay-summary-fee').textContent = rupees(service.fee_cents);
-  document.getElementById('pay-button').textContent = 'Pay ' + rupees(service.fee_cents) + ' securely';
-  var list = document.getElementById('pay-summary-list');
-  list.innerHTML =
-    '<li><span class="tick">✓</span> ' + service.title + ' (' + service.form_number + ')</li>' +
-    '<li><span class="tick">✓</span> Application number: ' + session.referenceCode + '</li>' +
-    (service.requires_slot ? '<li><span class="tick">✓</span> Slot: Tue 02 Sep 2026 · RTO ' + session.citizen.rto + '</li>' : '<li><span class="tick">✓</span> No RTO visit required</li>');
-  document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
-  var ps = document.getElementById('pay-status'); ps.hidden = true; ps.innerHTML = '';
-}
-
-function selectedPaymentMethod(){
-  if(document.getElementById('pm-card').checked) return 'Card';
-  if(document.getElementById('pm-nb').checked) return 'Net banking';
-  return 'UPI';
-}
-
-async function processPayment(method, delayMs, onTick){
-  session.lastPaymentMethod = method;
-  // The amount is deliberately not sent: the server reads the fee from the
-  // service so it cannot be talked down by a tampered request. If a charge is
-  // already in flight this returns that one (reused) rather than a second.
-  var created = await api('/api/payments', { method:'POST', body:{
-    applicationId: session.applicationId,
-    method: method
-  }});
-
-  var tick = null;
-  if(delayMs && onTick){
-    var secs = 0;
-    tick = setInterval(function(){ secs++; onTick(secs); }, 1000);
+// The server decides the amount and the order; this only opens the popup and
+// then watches. It cannot mark anything paid -- there is no endpoint for that.
+async function openCheckout(payable, statusEl){
+  var created = await api('/api/payments/order', { method:'POST', body: payable });
+  if(!window.Razorpay){
+    throw new Error('The payment window could not load. Check your connection and try again.');
   }
-  await new Promise(function(resolve){ setTimeout(resolve, delayMs || 600); });
-  if(tick) clearInterval(tick);
 
-  var confirmed = await api('/api/payments/' + created.payment.id + '/confirm', { method:'POST' });
-  return confirmed.payment;
+  return new Promise(function(resolve, reject){
+    var settled = false;
+    var rzp = new window.Razorpay({
+      key: created.keyId,
+      order_id: created.orderId,
+      amount: created.amountCents,
+      currency: 'INR',
+      name: 'Sarathi',
+      description: 'Government fee payment (test mode)',
+      prefill: {
+        name: session.citizen && session.citizen.name,
+        contact: session.citizen && session.citizen.mobile_number,
+      },
+      theme: { color: '#22315c' },
+      handler: function(){
+        // Deliberately does not report success. The popup closing only means
+        // the citizen finished with it -- the webhook says whether money moved.
+        if(settled) return;
+        settled = true;
+        pollPayment(created.payment.id, statusEl).then(resolve, reject);
+      },
+      modal: {
+        ondismiss: function(){
+          if(settled) return;
+          settled = true;
+          // Frees the payable for a retry. Without this the row stays
+          // reconciling behind the unique index and can never be paid again.
+          api('/api/payments/' + created.payment.id + '/dismissed', { method:'POST' })
+            .then(function(res){ resolve(res.payment); }, reject);
+        },
+      },
+    });
+    rzp.on('payment.failed', function(){
+      if(settled) return;
+      settled = true;
+      pollPayment(created.payment.id, statusEl).then(resolve, reject);
+    });
+    rzp.open();
+  });
 }
 
-async function runPayment(delay){
+// Polls until the webhook lands. The server reconciles against Razorpay itself
+// once a payment has been unresolved for a few seconds, so this terminates even
+// if a delivery is lost.
+async function pollPayment(paymentId, statusEl){
+  var started = Date.now();
+  var secs = 0;
+  while(Date.now() - started < 90000){
+    var res = await api('/api/payments/' + paymentId);
+    if(res.payment.status !== 'reconciling') return res.payment;
+    if(statusEl){
+      statusEl.hidden = false;
+      statusEl.innerHTML = '<div class="spinner" aria-hidden="true"></div>' +
+        '<p>Confirming with your bank. You will not be charged twice, and it is safe to close this and come back.</p>' +
+        '<p id="pay-timer">Awaiting bank confirmation — ' + secs + 's</p>';
+    }
+    await new Promise(function(r){ setTimeout(r, 1500); });
+    secs = Math.round((Date.now() - started) / 1000);
+  }
+  return (await api('/api/payments/' + paymentId)).payment;
+}
+
+async function runPayment(){
   document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = true; });
   var status = document.getElementById('pay-status');
-  status.hidden = false;
-  status.innerHTML = '<div class="spinner" aria-hidden="true"></div>' +
-    '<p>Confirming with your bank. This may take up to two minutes. You will not be charged twice, and it is safe to wait or return later.</p>' +
-    (delay ? '<p id="pay-timer">Awaiting bank confirmation — 0s</p>' : '');
+  status.hidden = true;
+  status.innerHTML = '';
 
   try{
-    // 4200 is the deliberate "slow bank confirmation" demo and stays slow on
-    // purpose; the normal path should not make anyone wait to watch a spinner.
-    await processPayment(selectedPaymentMethod(), delay ? 4200 : 600, function(secs){
-      var t = document.getElementById('pay-timer');
-      if(t) t.textContent = 'Awaiting bank confirmation — ' + secs + 's';
-    });
-    status.innerHTML = '<div class="stamp">PAYMENT<br>CONFIRMED</div>' +
-      '<p class="rec-id" style="text-align:center;">Application number: ' + session.referenceCode + '</p>' +
-      '<ul class="checklist payment-notifications">' +
-        '<li><span class="tick">✓</span><span><strong>Email sent successfully</strong><br><span class="hint">Receipt and appointment details sent to your email address on file.</span></span></li>' +
-        '<li><span class="tick">✓</span><span><strong>Mobile confirmation sent successfully</strong><br><span class="hint">SMS sent to ' + maskMobile(session.citizen.mobile_number) + '.</span></span></li>' +
-      '</ul>' +
-      '<button class="btn primary" data-action="goto-track">View application status</button>';
+    var payment = await openCheckout({ applicationId: session.applicationId }, status);
+
+    if(payment.status === 'paid'){
+      status.hidden = false;
+      status.innerHTML = '<div class="stamp">PAYMENT<br>CONFIRMED</div>' +
+        '<p class="rec-id" style="text-align:center;">Application number: ' + session.referenceCode + '</p>' +
+        '<ul class="checklist payment-notifications">' +
+          '<li><span class="tick">✓</span><span><strong>Email sent successfully</strong><br><span class="hint">Receipt and appointment details sent to your email address on file.</span></span></li>' +
+          '<li><span class="tick">✓</span><span><strong>Mobile confirmation sent successfully</strong><br><span class="hint">SMS sent to ' + maskMobile(session.citizen.mobile_number) + '.</span></span></li>' +
+        '</ul>' +
+        '<button class="btn primary" data-action="goto-track">View application status</button>';
+      return;
+    }
+
+    // The gateway's own reason when it gave one ("Card declined"), rather than
+    // a generic failure the citizen cannot act on.
+    status.hidden = false;
+    status.innerHTML = '<p class="error-text">' +
+      escapeHtml(payment.failure_reason || 'This payment did not complete.') +
+      ' Nothing was charged, and you can try again.</p>';
+    document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
   } catch(err){
-    status.innerHTML = '<p class="error-text">' + err.message + '</p>';
+    status.hidden = false;
+    status.innerHTML = '<p class="error-text">' + escapeHtml(err.message) + '</p>';
     document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
   }
 }
@@ -821,21 +859,22 @@ async function openAttentionApplication(el){
   await handleAction('goto-track', card);
 }
 
-// Same shape as downloadReceipt: disable and relabel before the await, but
-// always restore the button in a finally so a network drop or a 500 leaves a
-// retryable control instead of one stuck reading "Paying…" forever.
+// A challan is a payable like any other now: same popup, same webhook, same
+// ledger row. The finally is what keeps a network drop from leaving a button
+// stuck reading "Paying…" forever.
 async function payChallan(btn){
   var original = btn.textContent;
   btn.disabled = true;
-  btn.textContent = 'Paying…';
+  btn.textContent = 'Opening…';
   try{
-    await api('/api/challans/' + btn.getAttribute('data-id') + '/pay', { method:'POST' });
+    var payment = await openCheckout({ challanId: btn.getAttribute('data-id') }, null);
     await loadAttention();
+    if(payment.status !== 'paid'){
+      alert('That payment did not complete, so nothing was charged. You can try again.');
+    }
   } catch(err){
     alert(err.message);
   } finally {
-    // loadAttention() replaces this button's markup on success, so restoring
-    // it here is a no-op then and only matters on the failure path.
     btn.disabled = false;
     btn.textContent = original;
   }
@@ -1452,7 +1491,7 @@ async function handleAction(action, el){
       renderIntakeSubsteps();
     }
     else if(action === 'intake-back'){ intakeSubstep = Math.max(1, intakeSubstep - 1); renderIntakeSubsteps(); }
-    else if(action === 'goto-pay'){
+    else if(action === 'pay-now'){
       if(session.service.requires_slot && !session.selectedSlot){
         document.getElementById('cal-slot-summary').textContent = 'Please pick a date and time above to continue.';
         return;
@@ -1462,11 +1501,8 @@ async function handleAction(action, el){
         ackRow.classList.add('ack-missing');
         return;
       }
-      renderPayScreen();
-      showScreen('screen-pay');
+      await runPayment();
     }
-    else if(action === 'pay-now'){ await runPayment(false); }
-    else if(action === 'pay-delay-demo'){ await runPayment(true); }
     else if(action === 'goto-track'){
       if(!session.applicationId && !(el && el.dataset && el.dataset.appId)){
         alert('No application to show yet.');

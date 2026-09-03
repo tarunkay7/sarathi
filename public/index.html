@@ -552,52 +552,17 @@
           </label>
         </div>
       </div>
+      <div class="pay-inline" id="intake-pay">
+        <p class="pay-inline-assure">Every payment attempt is protected — you cannot be charged twice.</p>
+        <div id="pay-status" hidden aria-live="polite"></div>
+      </div>
       <div class="intake-nav">
         <button class="btn ghost" data-action="intake-back">Back</button>
-        <button class="btn primary" data-action="goto-pay">Proceed to payment</button>
+        <button class="btn primary pay-trigger" data-action="pay-now" id="pay-button">Pay securely</button>
       </div>
     </div>
   </section>
 
-
-  <!-- PAY -->
-  <section class="screen" id="screen-pay">
-    <div class="crumb"><a href="#" data-action="goto-dashboard">Dashboard</a> › Apply › Payment</div>
-    <div class="steps">
-      <div class="st done"><span class="n">1</span>Details</div>
-      <div class="st active"><span class="n">2</span>Pay</div>
-      <div class="st"><span class="n">3</span>Track</div>
-    </div>
-
-    <h1>Confirm &amp; Pay</h1>
-    <p class="lead">Every payment attempt is protected — you cannot be charged twice.</p>
-
-    <div class="panel">
-      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2-1.3L14 21l-2-1.3L10 21l-2-1.3L6 21V3Z"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="15" y2="12"/></svg>Application summary</span> <span class="sub" id="pay-summary-fee">₹0</span></div>
-      <div class="panel-body">
-        <ul class="checklist" id="pay-summary-list"></ul>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Payment method</span></div>
-      <div class="panel-body">
-        <div class="slot-choice sel"><input type="radio" name="pm" id="pm-upi" checked><label for="pm-upi">UPI (BHIM / GPay / PhonePe / Paytm)</label></div>
-        <div class="slot-choice"><input type="radio" name="pm" id="pm-card"><label for="pm-card">Debit / Credit card</label></div>
-        <div class="slot-choice"><input type="radio" name="pm" id="pm-nb"><label for="pm-nb">Net banking</label></div>
-      </div>
-    </div>
-
-    <button class="btn primary pay-trigger" data-action="pay-now" id="pay-button">Pay securely</button>
-
-    <div id="pay-status" hidden aria-live="polite"></div>
-
-    <div class="demo">
-      <span class="lbl">Prototype demo</span>
-      <p class="hint" style="margin-top:0;">See how a slow bank confirmation is handled — instead of a false "transaction failed" that made people pay twice.</p>
-      <button class="btn ghost small pay-trigger" data-action="pay-delay-demo">Simulate delayed bank confirmation</button>
-    </div>
-  </section>
 
   <!-- TRACK -->
   <section class="screen" id="screen-track">
@@ -720,10 +685,13 @@
 <footer>
   <div class="foot-inner">
     <p><strong>Sarathi Parivahan Sewa (prototype)</strong></p>
-    <p class="foot-meta">This is a design prototype reimagining India's RTO driving-licence services around problems documented in publicly filed citizen complaints: unclear payment status, silent application delays, and the absence of a persistent citizen account. All names, numbers, fees, and documents shown are mock data. No real government official, system, OTP, or payment gateway is referenced or contacted. Concept design only — not affiliated with or endorsed by MoRTH or NIC. Content owned by prototype author · Designed &amp; developed as a demonstration.</p>
+    <p class="foot-meta">This is a design prototype reimagining India's RTO driving-licence services around problems documented in publicly filed citizen complaints: unclear payment status, silent application delays, and the absence of a persistent citizen account. All names, numbers, fees, and documents shown are mock data. No real government official, system, or OTP is referenced or contacted. Fee and challan payments run against Razorpay's test-mode sandbox — the gateway is real, no money moves, and no live payment instrument is ever charged. Concept design only — not affiliated with or endorsed by MoRTH or NIC. Content owned by prototype author · Designed &amp; developed as a demonstration.</p>
   </div>
 </footer>
 
+<!-- Razorpay does not permit self-hosting checkout.js; it must load from their
+     domain so the popup stays current with their gateway. -->
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
