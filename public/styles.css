@@ -558,6 +558,13 @@
   .grv-quote{margin:14px 16px 0;padding:0 0 0 12px;border-left:2px solid var(--rule);font-size:13.5px;font-style:italic;
     color:var(--ink-soft);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
   .grv-answer{margin:11px 16px 0;font-size:14px;line-height:1.55;color:var(--ink);}
+  /* The citizen half and the officer half of the same ticket, side by side. */
+  .grv-bilingual{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin:0 16px 10px;padding:10px 12px;
+    background:var(--surface-sunk);border-radius:var(--radius-sm);border-left:3px solid var(--saffron);}
+  .grv-lang-tag{flex:0 0 auto;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--saffron-deep);background:var(--saffron-soft);border-radius:99px;padding:3px 9px;}
+  .grv-officer{flex:1 1 240px;font-size:12.5px;line-height:1.5;color:var(--ink-soft);font-weight:600;}
+  .grv-officer strong{color:var(--ink);}
   .grv-attrib{margin:0;padding:2px 16px 14px;font-size:11px;font-weight:600;color:var(--ink-faint);}
 
   /* The outcome card answers what was just submitted, so it leads with what

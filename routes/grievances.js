@@ -46,9 +46,13 @@ const CATEGORY_LABELS = {
 const TRIAGE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['category', 'severity', 'summary', 'citizen_reply', 'answered_immediately'],
+  required: ['category', 'severity', 'language', 'summary', 'citizen_reply', 'answered_immediately'],
   properties: {
     category: { type: 'string', enum: CATEGORIES },
+    language: {
+      type: 'string',
+      description: 'The language the citizen wrote or spoke in, as its English name — Hindi, Telugu, Tamil, Marathi, Bengali, Kannada, English, and so on.',
+    },
     severity: {
       type: 'string',
       enum: ['low', 'normal', 'high'],
@@ -56,11 +60,11 @@ const TRIAGE_SCHEMA = {
     },
     summary: {
       type: 'string',
-      description: 'One neutral sentence an RTO officer can act on, naming the application if there is one.',
+      description: 'One neutral sentence an RTO officer can act on, naming the application if there is one. ALWAYS in English, whatever language the citizen used — the officer reading it may not share it.',
     },
     citizen_reply: {
       type: 'string',
-      description: 'Two or three short warm sentences in plain English, addressed to the citizen, saying what happens next. If the question is answerable from the applications given, answer it concretely with the real reference code and date.',
+      description: 'Two or three short warm sentences addressed to the citizen, saying what happens next, WRITTEN IN THE SAME LANGUAGE THEY USED. If the question is answerable from the applications given, answer it concretely with the real reference code and date. Reference codes, dates and amounts stay in their original form, never transliterated.',
     },
     answered_immediately: {
       type: 'boolean',
@@ -104,12 +108,13 @@ const SYSTEM_PROMPT = [
   'Severity decides how fast a human must reply, so apply it strictly. Use high whenever money has left the citizen\'s account and is unaccounted for, a bribe or extortion is described, a licence has already been issued with wrong details, or a legal deadline has been missed. Use low only for general questions where nothing is at stake. Everything else is normal.',
   'Never claim to have contacted a real government system, and never ask for an Aadhaar number, OTP, card or bank detail.',
   'Write at a sixth-standard reading level. No jargon, no apologising twice, no filler.',
+  'LANGUAGE. A citizen who complains in Telugu should not be answered in English. Identify the language they used and write citizen_reply in it, in that language\'s own script. The officer-facing summary is always English, because the desk reading it may not share the citizen\'s language. Leave reference codes, dates and amounts exactly as they appear — never transliterate or translate those.',
 ].join(' ');
 
 // Keyword triage, used when there is no API key or the model call fails. Coarse
 // on purpose: it exists so the grievance is still accepted and routed rather
 // than lost, not to be a second implementation of the model.
-function triageWithRules(body) {
+function triageWithRules(body, spokenLanguage) {
   const text = String(body).toLowerCase();
   const match = [
     ['payment', /paid|payment|money|refund|debit|charge|twice|deduct|upi/],
@@ -125,11 +130,14 @@ function triageWithRules(body) {
     severity: /bribe|twice|refund|fraud/.test(text) ? 'high' : 'normal',
     summary: `Citizen-reported ${CATEGORY_LABELS[category].toLowerCase()} issue awaiting officer review.`,
     citizen_reply: 'Your grievance has been logged and routed to the right desk. You will get an SMS when an officer picks it up, and you can see its status on your dashboard at any time.',
+    // The keyword fallback cannot translate, so it records the language it was
+    // unable to answer in rather than pretending English was the right choice.
+    language: spokenLanguage || 'English',
     answered_immediately: false,
   };
 }
 
-async function triageWithOpenAI(body, factSheet) {
+async function triageWithOpenAI(body, factSheet, spokenLanguage) {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -141,7 +149,7 @@ async function triageWithOpenAI(body, factSheet) {
       temperature: 0.2,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `FACTS\n${factSheet}\n\nCOMPLAINT\n${body}` },
+        { role: 'user', content: `FACTS\n${factSheet}\n\n${spokenLanguage ? `Speech recognition detected the citizen spoke this in ${spokenLanguage}.\n\n` : ''}COMPLAINT\n${body}` },
       ],
       // strict json_schema means the reply always parses and the category is
       // always one the router knows, so there is no shape to defend against.
@@ -172,7 +180,10 @@ function addWorkingDays(days) {
 }
 
 router.post('/', asyncHandler(async (req, res) => {
-  const { citizenId, mobileNumber, applicationId, body } = req.body || {};
+  const { citizenId, mobileNumber, applicationId, body, language } = req.body || {};
+  // Whisper's detected language, when the complaint was spoken. Only a hint —
+  // the model still decides, since a typed complaint has no hint at all.
+  const spokenLanguage = String(language || '').trim() || null;
   const requestedCitizen = /^\d+$/.test(String(citizenId || '')) ? Number(citizenId) : null;
   const mobile = String(mobileNumber || '').trim();
   if (requestedCitizen === null && !/^\d{10}$/.test(mobile)) {
@@ -231,15 +242,15 @@ router.post('/', asyncHandler(async (req, res) => {
   let triage;
   let triagedBy = 'openai';
   if (!process.env.OPENAI_API_KEY) {
-    triage = triageWithRules(text);
+    triage = triageWithRules(text, spokenLanguage);
     triagedBy = 'rules';
   } else {
     try {
-      triage = await triageWithOpenAI(text, factSheet);
+      triage = await triageWithOpenAI(text, factSheet, spokenLanguage);
     } catch (err) {
       // A grievance must never be lost because a third party was unavailable.
       console.warn('[grievance] OpenAI triage failed, using keyword fallback:', err.message);
-      triage = triageWithRules(text);
+      triage = triageWithRules(text, spokenLanguage);
       triagedBy = 'rules';
     }
   }
@@ -251,13 +262,14 @@ router.post('/', asyncHandler(async (req, res) => {
   const inserted = await pool.query(
     `INSERT INTO grievances
        (ticket_code, citizen_id, application_id, body, category, severity, summary,
-        route_to, citizen_reply, answered_immediately, triaged_by, status, expected_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        route_to, citizen_reply, answered_immediately, triaged_by, status, expected_by, language)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
     [
       makeTicketCode(), citizen, linkedApplication, text, category, severity,
       triage.summary, DESKS[category], triage.citizen_reply, answered, triagedBy,
       answered ? 'answered' : 'open',
       answered ? null : addWorkingDays(SLA_DAYS[severity]),
+      String(triage.language || spokenLanguage || 'English').trim(),
     ]
   );
 

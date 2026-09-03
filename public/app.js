@@ -893,6 +893,15 @@ function grievanceRow(g){
     // before, so a filed grievance was something they had to remember.
     '<blockquote class="grv-quote">' + escapeHtml(g.body) + '</blockquote>' +
     '<p class="grv-answer">' + escapeHtml(g.citizen_reply) + '</p>' +
+    // The point of the whole feature in one row: the citizen is answered in the
+    // language they used, and the desk still gets English. Only worth showing
+    // when those two differ.
+    (g.language && g.language.toLowerCase() !== 'english'
+      ? '<div class="grv-bilingual">' +
+          '<span class="grv-lang-tag">Answered in ' + escapeHtml(g.language) + '</span>' +
+          '<span class="grv-officer"><strong>The officer sees:</strong> ' + escapeHtml(g.summary) + '</span>' +
+        '</div>'
+      : '') +
     '<div class="rec-facts">' +
       facts.map(function(f){
         return '<div class="rec-fact"><span class="k">' + f[0] + '</span><span class="v">' + escapeHtml(f[1]) + '</span></div>';
@@ -979,8 +988,8 @@ async function transcribeGrievanceAudio(blob){
   var startButton = document.getElementById('grievance-record-start');
   grievanceTranscribing = true;
   startButton.disabled = true;
-  document.getElementById('grievance-recording-label').textContent = 'Translating to English with OpenAI…';
-  document.getElementById('grievance-transcript').textContent = 'Turning your recording into English text…';
+  document.getElementById('grievance-recording-label').textContent = 'Reading your recording…';
+  document.getElementById('grievance-transcript').textContent = 'Turning your recording into text…';
   try{
     var response = await fetch('/api/transcriptions/grievance', {
       method: 'POST',
@@ -989,18 +998,21 @@ async function transcribeGrievanceAudio(blob){
     });
     var data = {};
     try{ data = await response.json(); } catch(e){}
-    if(!response.ok) throw new Error(data.error || 'The recording could not be translated.');
+    if(!response.ok) throw new Error(data.error || 'The recording could not be read.');
+    // Whisper reports the language it heard. Carried through to the triage so
+    // the reply comes back in it rather than defaulting to English.
+    session.grievanceLanguage = data.language || null;
     var text = ((grievanceTextBeforeRecording ? grievanceTextBeforeRecording + ' ' : '') + data.text).trim().slice(0, 2000);
     var field = document.getElementById('grievance-body');
     field.value = text;
     var transcript = document.getElementById('grievance-transcript');
     transcript.textContent = text;
     transcript.classList.add('has-text');
-    document.getElementById('grievance-recording-label').textContent = 'English text ready';
+    document.getElementById('grievance-recording-label').textContent = 'Ready';
   } catch(err){
     errorEl.textContent = err.message;
     errorEl.hidden = false;
-    document.getElementById('grievance-recording-label').textContent = 'Translation failed';
+    document.getElementById('grievance-recording-label').textContent = 'Could not read the recording';
     document.getElementById('grievance-transcript').textContent = grievanceTextBeforeRecording || 'Try recording again or type your grievance.';
   } finally {
     grievanceTranscribing = false;
@@ -1079,7 +1091,8 @@ async function submitGrievance(btn){
       citizenId: session.citizen.id,
       mobileNumber: session.citizen.mobile_number,
       applicationId: select && select.value ? Number(select.value) : null,
-      body: text
+      body: text,
+      language: session.grievanceLanguage || null
     }});
 
     // The form is replaced by the outcome rather than clearing to an empty box,
@@ -1110,7 +1123,7 @@ function resetGrievanceForm(focusField){
   document.getElementById('grievance-error').hidden = true;
   var transcript = document.getElementById('grievance-transcript');
   var text = document.getElementById('grievance-body').value.trim();
-  transcript.textContent = text || 'Your English transcript will appear here after recording.';
+  transcript.textContent = text || 'Your words will appear here after recording.';
   transcript.classList.toggle('has-text', Boolean(text));
   if(focusField) document.getElementById('grievance-body').focus();
 }

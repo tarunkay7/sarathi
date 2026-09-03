@@ -192,3 +192,11 @@ ALTER TABLE citizens ALTER COLUMN vehicle_classes DROP DEFAULT;
 -- class also decides whether a medical certificate is needed, so it has to be
 -- answered before the application exists rather than assumed from the account.
 ALTER TABLE applications ADD COLUMN IF NOT EXISTS vehicle_classes TEXT;
+
+-- The language the citizen actually used. Whisper was translating every
+-- complaint to English before anything saw it, which meant the reply could only
+-- ever come back in English — the system listened in Telugu and answered in a
+-- language the citizen might not read. Stored so the reply, and the citizen's
+-- own words shown back to them, stay in their language while the officer's
+-- summary stays English.
+ALTER TABLE grievances ADD COLUMN IF NOT EXISTS language TEXT;
