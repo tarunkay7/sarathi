@@ -13,6 +13,12 @@ const challanRoutes = require('./routes/challans');
 const attentionRoutes = require('./routes/attention');
 
 const app = express();
+
+// Razorpay signs the raw request bytes. express.json() would parse and discard
+// them, and re-serializing produces different bytes, so every signature check
+// would fail. This mount has to come first.
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), paymentRoutes.webhook);
+
 app.use(express.json());
 
 app.get('/api/health', async (req, res) => {
