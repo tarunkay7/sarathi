@@ -92,6 +92,20 @@ test('an application with no live payment is act-now', () => {
   assert.match(item.detail, /₹700/);
 });
 
+// The trigger is a missing payment row, which is not evidence that a payment
+// failed. Saying it failed is the exact false alarm this project exists to fix,
+// so the wording is asserted, not left to a reviewer to notice.
+test('an unpaid application is described as not paid, not as a failed payment', () => {
+  const items = computeAttention({
+    citizen: citizen(), applications: [application({ payment_status: null })],
+    challans: [], now: NOW,
+  });
+  const item = items.find((i) => i.kind === 'payment_incomplete');
+  assert.equal(item.title, 'Your payment is not complete');
+  assert.match(item.detail, /has not been paid yet/);
+  assert.doesNotMatch(item.title, /did not complete/);
+});
+
 test('an application past its expected date is act-now', () => {
   const items = computeAttention({
     citizen: citizen(), applications: [application({ expected_by: '2026-08-20' })],
@@ -100,6 +114,30 @@ test('an application past its expected date is act-now', () => {
   const item = items.find((i) => i.kind === 'overdue');
   assert.equal(item.severity, 'act');
   assert.equal(item.source, 'application TS-DL-2026-3170');
+});
+
+// Escalation is a separate act with its own column and no scheduler behind it.
+// This item fires on the date alone, so it may only claim an escalation when
+// the row records one.
+test('an overdue application that was escalated says so', () => {
+  const items = computeAttention({
+    citizen: citizen(),
+    applications: [application({ expected_by: '2026-08-20', escalated: true })],
+    challans: [], now: NOW,
+  });
+  const item = items.find((i) => i.kind === 'overdue');
+  assert.match(item.detail, /was escalated for you/);
+});
+
+test('an overdue application that was never escalated does not claim it was', () => {
+  const items = computeAttention({
+    citizen: citizen(),
+    applications: [application({ expected_by: '2026-08-20', escalated: false })],
+    challans: [], now: NOW,
+  });
+  const item = items.find((i) => i.kind === 'overdue');
+  assert.doesNotMatch(item.detail, /escalat/i);
+  assert.equal(item.detail, 'TS-DL-2026-3170 has passed its expected date and is still open.');
 });
 
 test('a licence expiring inside 60 days is soon, and says how many days', () => {

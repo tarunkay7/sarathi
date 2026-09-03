@@ -23,6 +23,12 @@ function formatDate(value) {
 
 const SEVERITY_ORDER = { act: 0, soon: 1, info: 2 };
 
+// Every action.type computeAttention can put on a button. Exported so a test
+// can assert the browser has an arm for each: four of the five buttons once
+// shipped dead because the engine grew action types the click handler never
+// learned, and nothing in either file could see the other half of the contract.
+const ACTION_TYPES = ['pay-challan', 'start-renew', 'open-application'];
+
 function computeAttention({ citizen, applications = [], challans = [], now = new Date() }) {
   const items = [];
 
@@ -65,12 +71,16 @@ function computeAttention({ citizen, applications = [], challans = [], now = new
   }
 
   for (const app of applications) {
+    // The trigger is the absence of a payment row, which is not the same thing
+    // as a payment having failed. A citizen who walked away at step 1 has never
+    // paid; telling them their payment "did not complete" is exactly the false
+    // alarm this project is named after.
     if (!app.payment_status) {
       items.push({
         kind: 'payment_incomplete',
         severity: 'act',
-        title: 'Your payment did not complete',
-        detail: `${app.reference_code} is waiting on ${rupees(app.fee_cents)}.`,
+        title: 'Your payment is not complete',
+        detail: `${app.reference_code} has not been paid yet — ${rupees(app.fee_cents)} is due.`,
         action: { label: 'Pay now', type: 'open-application', id: app.id },
         source: `application ${app.reference_code}`,
       });
@@ -80,7 +90,13 @@ function computeAttention({ citizen, applications = [], challans = [], now = new
         kind: 'overdue',
         severity: 'act',
         title: 'An application is running late',
-        detail: `${app.reference_code} has passed its expected date and was escalated for you.`,
+        // This item fires on the date alone. Escalation is a separate act with
+        // its own column, and there is no scheduler behind it, so claiming it
+        // happened whenever an application is late told the citizen someone had
+        // acted on their behalf when nobody had.
+        detail: app.escalated
+          ? `${app.reference_code} has passed its expected date and was escalated for you.`
+          : `${app.reference_code} has passed its expected date and is still open.`,
         action: { label: 'View status', type: 'open-application', id: app.id },
         source: `application ${app.reference_code}`,
       });
@@ -114,7 +130,7 @@ router.get('/citizen/:id', asyncHandler(async (req, res) => {
   if (!citizen) return res.status(404).json({ error: 'Not found' });
 
   const applications = await pool.query(
-    `SELECT a.id, a.reference_code, a.expected_by, a.slot_at,
+    `SELECT a.id, a.reference_code, a.expected_by, a.slot_at, a.escalated,
             s.title AS service_title, s.fee_cents, s.carry_items,
             (SELECT p.status FROM payments p
               WHERE p.application_id = a.id AND p.status IN ('reconciling','paid')
@@ -142,3 +158,4 @@ router.get('/citizen/:id', asyncHandler(async (req, res) => {
 
 module.exports = router;
 module.exports.computeAttention = computeAttention;
+module.exports.ACTION_TYPES = ACTION_TYPES;
