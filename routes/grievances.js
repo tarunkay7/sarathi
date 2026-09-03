@@ -43,6 +43,13 @@ const CATEGORY_LABELS = {
   other: 'General',
 };
 
+// The one reply an ungrounded question is allowed to produce, whichever path
+// decided it could not answer — the keyword fallback (never had a fact sheet)
+// or the model (asked to route but not trusted to keep its prose honest, see
+// the ROUTED_REPLY substitution below). English only: this is the fixed
+// fallback text, not a translation of anything the citizen said.
+const ROUTED_REPLY = 'Your grievance has been logged and routed to the right desk. You will get an SMS when an officer picks it up, and you can see its status on your dashboard at any time.';
+
 const TRIAGE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -154,7 +161,7 @@ function triageWithRules(body, spokenLanguage) {
     category,
     severity: /bribe|twice|refund|fraud/.test(text) ? 'high' : 'normal',
     summary: `Citizen-reported ${CATEGORY_LABELS[category].toLowerCase()} issue awaiting officer review.`,
-    citizen_reply: 'Your grievance has been logged and routed to the right desk. You will get an SMS when an officer picks it up, and you can see its status on your dashboard at any time.',
+    citizen_reply: ROUTED_REPLY,
     // The keyword fallback cannot translate, so it records the language it was
     // unable to answer in rather than pretending English was the right choice.
     language: spokenLanguage || 'English',
@@ -297,7 +304,21 @@ router.post('/', asyncHandler(async (req, res) => {
 
   const severity = SLA_DAYS[triage.severity] ? triage.severity : 'normal';
   const category = DESKS[triage.category] ? triage.category : 'other';
-  const answered = Boolean(triage.answered_immediately);
+
+  // The schema asks the model to set answered_immediately false whenever
+  // source is "none", but a prompt instruction is not a guarantee — testing
+  // showed the model does not reliably honour it, sometimes marking an
+  // ungrounded guess as answered anyway. The same discipline this app applies
+  // to double payment (a database constraint, not a disabled button) applies
+  // here: the invariant is enforced in code, not requested in English.
+  const grounded = Boolean(triage.source) && String(triage.source).trim().toLowerCase() !== 'none';
+  const answered = grounded && Boolean(triage.answered_immediately);
+  // An ungrounded question must never reach the citizen as an answer, however
+  // plausible the model's prose reads. Discarded in favour of the same fixed
+  // routing notice the keyword fallback already uses. summary is kept as the
+  // model wrote it regardless — it is officer-facing, and an officer benefits
+  // from seeing what was actually asked even when nobody answered it yet.
+  const citizenReply = grounded ? triage.citizen_reply : ROUTED_REPLY;
 
   const inserted = await pool.query(
     `INSERT INTO grievances
@@ -306,7 +327,7 @@ router.post('/', asyncHandler(async (req, res) => {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
     [
       makeTicketCode(), citizen, linkedApplication, text, category, severity,
-      triage.summary, DESKS[category], triage.citizen_reply, answered, triagedBy,
+      triage.summary, DESKS[category], citizenReply, answered, triagedBy,
       answered ? 'answered' : 'open',
       answered ? null : addWorkingDays(SLA_DAYS[severity]),
       String(triage.language || spokenLanguage || 'English').trim(),
