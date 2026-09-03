@@ -11,8 +11,15 @@ function keyId() {
   return process.env.RAZORPAY_KEY_ID;
 }
 
+// The webhook secret belongs here: without it every delivery 400s on signature
+// verification, so a deploy holding only the key pair would take payments it
+// could never confirm.
 function configured() {
-  return Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
+  return Boolean(
+    process.env.RAZORPAY_KEY_ID &&
+    process.env.RAZORPAY_KEY_SECRET &&
+    process.env.RAZORPAY_WEBHOOK_SECRET
+  );
 }
 
 function authHeader() {

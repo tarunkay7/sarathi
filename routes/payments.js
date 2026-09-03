@@ -13,6 +13,25 @@ const LIVE = `status IN ('reconciling','paid')`;
 // two seconds; this is the recovery path for one that never comes.
 const RECONCILE_AFTER_MS = 8000;
 
+// After this long with nothing at the gateway to show for it, an attempt is
+// treated as abandoned and the payable is released. Long enough that a citizen
+// who is still choosing a UPI app is never cut off; short enough that a closed
+// tab does not lock them out of a licence.
+const ABANDON_AFTER_MS = 15 * 60 * 1000;
+
+// One reconcile attempt per payment per interval. Without this the client's own
+// 1.5s poll turns a single stuck payment into ~55 gateway calls in 90 seconds,
+// exhausting the rate limit that the recovery path depends on.
+const RECONCILE_THROTTLE_MS = 8000;
+const lastReconcileAt = new Map();
+
+function mayReconcile(paymentId) {
+  const last = lastReconcileAt.get(paymentId) || 0;
+  if (Date.now() - last < RECONCILE_THROTTLE_MS) return false;
+  lastReconcileAt.set(paymentId, Date.now());
+  return true;
+}
+
 function rupees(cents) {
   return '₹' + Math.round(cents / 100).toLocaleString('en-IN');
 }
@@ -85,6 +104,13 @@ async function settle(payment, event) {
     console.error(
       `[payments] amount mismatch on payment ${payment.id}: captured ${event.amount}, ` +
       `expected ${payment.amount_cents}. Not settling.`
+    );
+    // The status is deliberately left alone, but a mismatch that lives only in
+    // the log is invisible to anyone reading the data. Record it on the row so
+    // the orphaned capture can be found and reconciled by hand.
+    await pool.query(
+      `UPDATE payments SET failure_reason = $2 WHERE id = $1 AND status = 'reconciling'`,
+      [payment.id, `Gateway captured ${event.amount} but this payment is for ${payment.amount_cents}. Needs manual reconciliation.`]
     );
     return payment;
   }
@@ -211,8 +237,43 @@ async function reconcile(payment) {
   const items = (list && list.items) || [];
   const chosen = items.find((p) => p.status === 'captured') || items.find((p) => p.status === 'failed');
   const event = psp.eventFromPayment(chosen);
-  if (!event) return payment;
-  return settle(payment, event);
+  if (event) return settle(payment, event);
+
+  // The gateway has no outcome for this order. If an attempt is still open
+  // there, the citizen's money may be held against it, so leave it alone.
+  // Otherwise, once enough time has passed that nobody is still paying, release
+  // the payable -- a row stuck in 'reconciling' holds the unique index and
+  // would block this challan or application for good.
+  const holding = items.some((p) => p.status === 'authorized' || p.status === 'created');
+  const age = Date.now() - new Date(payment.created_at).getTime();
+  if (!holding && age > ABANDON_AFTER_MS) {
+    return settle(payment, { type: 'client.abandoned' });
+  }
+  return payment;
+}
+
+// A citizen who closed the tab never polls again, so the recovery path is never
+// entered for their payment. The dashboard is where they come back, so the
+// attention endpoint sweeps their stale attempts on load.
+async function reconcileStaleForCitizen(citizenId) {
+  const stale = await pool.query(
+    `SELECT p.* FROM payments p
+       LEFT JOIN applications a ON a.id = p.application_id
+       LEFT JOIN challans     c ON c.id = p.challan_id
+      WHERE p.status = 'reconciling'
+        AND p.created_at < now() - interval '8 seconds'
+        AND COALESCE(a.citizen_id, c.citizen_id) = $1`,
+    [citizenId]
+  );
+  for (const payment of stale.rows) {
+    if (!mayReconcile(payment.id)) continue;
+    try {
+      await reconcile(payment);
+    } catch (err) {
+      // Never let a sweep break the dashboard the citizen is trying to read.
+      console.warn(`[payments] stale reconcile failed for ${payment.id}: ${err.message}`);
+    }
+  }
 }
 
 router.post('/order', asyncHandler(async (req, res) => {
@@ -226,6 +287,12 @@ router.post('/order', asyncHandler(async (req, res) => {
   // Retrying a slow payment returns the charge already in flight instead of
   // starting a second one.
   const existing = await findLive(payable.column, payable.id);
+  // findLive matches 'paid' too, so without this an already-settled application
+  // payment comes back as reused and the citizen is shown a popup for an order
+  // that has already been charged. Challans are guarded in resolvePayable.
+  if (existing.rows[0] && existing.rows[0].status === 'paid') {
+    return res.status(409).json({ error: 'This has already been paid.' });
+  }
   if (existing.rows[0]) {
     return res.json({
       payment: existing.rows[0], keyId: psp.keyId(),
@@ -292,7 +359,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   // Self-healing instead of a scheduler: a webhook that never arrived is
   // recovered by the poll the citizen's browser is already making.
   const age = Date.now() - new Date(payment.created_at).getTime();
-  if (payment.status === 'reconciling' && age > RECONCILE_AFTER_MS) {
+  if (payment.status === 'reconciling' && age > RECONCILE_AFTER_MS && mayReconcile(payment.id)) {
     payment = await reconcile(payment);
   }
   res.json({ payment });
@@ -307,6 +374,14 @@ router.post('/:id/dismissed', asyncHandler(async (req, res) => {
   const result = await pool.query('SELECT * FROM payments WHERE id = $1', [id]);
   const payment = result.rows[0];
   if (!payment) return res.status(404).json({ error: 'Not found' });
+
+  // The order id is only ever handed to the browser that created this payment,
+  // so echoing it stands in for the session check this prototype does not have.
+  // Without it, sequential ids let anyone fail a stranger's live payment.
+  if (!req.body || req.body.orderId !== payment.psp_order_id) {
+    return res.status(403).json({ error: 'That payment cannot be updated from here.' });
+  }
+
   res.json({ payment: await settle(payment, { type: 'client.dismissed' }) });
 }));
 
@@ -345,3 +420,4 @@ const webhook = asyncHandler(async (req, res) => {
 
 module.exports = router;
 module.exports.webhook = webhook;
+module.exports.reconcileStaleForCitizen = reconcileStaleForCitizen;

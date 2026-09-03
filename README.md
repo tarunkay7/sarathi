@@ -27,10 +27,15 @@ A prototype reimagining India's driving-licence portal (Sarathi Parivahan Sewa) 
    ```
    DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
    OPENAI_API_KEY=sk-...
+   RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxxx
+   RAZORPAY_KEY_SECRET=your_test_key_secret
+   RAZORPAY_WEBHOOK_SECRET=your_webhook_secret
    ```
    Get these from a teammate over a private channel — do not paste them in a commit, issue, or PR.
 
    `OPENAI_API_KEY` powers grievance triage. Without it grievances still file — they fall back to keyword triage, and the UI says which one sorted the ticket. `OPENAI_TRIAGE_MODEL` optionally overrides the triage model (default `gpt-4o-mini`).
+
+   The three `RAZORPAY_*` values are **test-mode** credentials — this is a prototype and must never be pointed at live-mode keys. `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` come from the Razorpay dashboard's API keys page in test mode; `RAZORPAY_WEBHOOK_SECRET` is the secret you set when creating the webhook that delivers `payment.captured` and `payment.failed` to `/api/payments/webhook`. All three are required together: with any of them missing the payment endpoints return 501 rather than taking a payment the server could never confirm.
 
 3. Apply the schema and seed the four licence services:
    ```

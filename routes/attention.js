@@ -146,6 +146,11 @@ router.get('/citizen/:id', asyncHandler(async (req, res) => {
   const citizen = citizenResult.rows[0];
   if (!citizen) return res.status(404).json({ error: 'Not found' });
 
+  // Recovers payments stranded by a closed tab, before we render a panel that
+  // would otherwise tell this citizen their payment is still confirming forever.
+  // Required inline to avoid a load-order cycle between the two route modules.
+  await require('./payments').reconcileStaleForCitizen(id);
+
   const applications = await pool.query(
     `SELECT a.id, a.reference_code, a.expected_by, a.slot_at, a.escalated,
             s.title AS service_title, s.fee_cents, s.carry_items,

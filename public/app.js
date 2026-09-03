@@ -302,6 +302,12 @@ function renderIntakeScreen(){
   document.getElementById('intake-fee-amount').textContent = rupees(service.fee_cents);
   var payBtn = document.getElementById('pay-button');
   if(payBtn) payBtn.textContent = 'Pay ' + rupees(service.fee_cents) + ' securely';
+  // renderPayScreen used to own this reset. It is gone, and the button and
+  // status panel now live on the shared intake screen, so a second application
+  // would otherwise inherit the first one's confirmation and a dead button.
+  var payStatus = document.getElementById('pay-status');
+  if(payStatus){ payStatus.hidden = true; payStatus.innerHTML = ''; }
+  document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
   document.getElementById('intake-slot-section').hidden = !service.requires_slot;
   document.getElementById('intake-no-slot').hidden = !!service.requires_slot;
   document.getElementById('intake-fee-note').textContent =
@@ -499,10 +505,12 @@ async function completeIntakeDetails(){
 // The server decides the amount and the order; this only opens the popup and
 // then watches. It cannot mark anything paid -- there is no endpoint for that.
 async function openCheckout(payable, statusEl){
-  var created = await api('/api/payments/order', { method:'POST', body: payable });
+  // Checked before we create anything: an order with no popup to pay it is a
+  // stranded row holding the payable's unique index.
   if(!window.Razorpay){
     throw new Error('The payment window could not load. Check your connection and try again.');
   }
+  var created = await api('/api/payments/order', { method:'POST', body: payable });
 
   return new Promise(function(resolve, reject){
     var settled = false;
@@ -531,7 +539,8 @@ async function openCheckout(payable, statusEl){
           settled = true;
           // Frees the payable for a retry. Without this the row stays
           // reconciling behind the unique index and can never be paid again.
-          api('/api/payments/' + created.payment.id + '/dismissed', { method:'POST' })
+          api('/api/payments/' + created.payment.id + '/dismissed',
+              { method:'POST', body:{ orderId: created.orderId } })
             .then(function(res){ resolve(res.payment); }, reject);
         },
       },
@@ -548,10 +557,11 @@ async function openCheckout(payable, statusEl){
 // Polls until the webhook lands. The server reconciles against Razorpay itself
 // once a payment has been unresolved for a few seconds, so this terminates even
 // if a delivery is lost.
-async function pollPayment(paymentId, statusEl){
+async function pollPayment(paymentId, statusEl, timeoutMs){
+  var limit = timeoutMs || 90000;
   var started = Date.now();
   var secs = 0;
-  while(Date.now() - started < 90000){
+  while(Date.now() - started < limit){
     var res = await api('/api/payments/' + paymentId);
     if(res.payment.status !== 'reconciling') return res.payment;
     if(statusEl){
@@ -566,6 +576,60 @@ async function pollPayment(paymentId, statusEl){
   return (await api('/api/payments/' + paymentId)).payment;
 }
 
+// Every outcome a settled poll can hand back, in one place, so the first
+// attempt and the "Check again" button can never describe the same payment
+// differently. Nothing here asserts an outcome the server has not given.
+async function renderPaymentOutcome(payment, status){
+  if(payment.status === 'paid'){
+    // The only truthful source for the receipt's "Payment method": settle()
+    // stores whatever Razorpay itself reported for this payment.
+    session.lastPaymentMethod = payment.method || null;
+    status.hidden = false;
+    status.innerHTML = '<div class="stamp">PAYMENT<br>CONFIRMED</div>' +
+      '<p class="rec-id" style="text-align:center;">Application number: ' + session.referenceCode + '</p>' +
+      '<ul class="checklist payment-notifications">' +
+        '<li><span class="tick">✓</span><span><strong>Email sent successfully</strong><br><span class="hint">Receipt and appointment details sent to your email address on file.</span></span></li>' +
+        '<li><span class="tick">✓</span><span><strong>Mobile confirmation sent successfully</strong><br><span class="hint">SMS sent to ' + maskMobile(session.citizen.mobile_number) + '.</span></span></li>' +
+      '</ul>' +
+      '<button class="btn primary" data-action="goto-track">View application status</button>';
+    return;
+  }
+
+  // An explicit gateway failure is the only outcome where we can promise
+  // nothing was charged.
+  if(payment.status === 'failed' && payment.failure_reason){
+    status.hidden = false;
+    status.innerHTML = '<p class="error-text">' + escapeHtml(payment.failure_reason) +
+      ' Nothing was charged, and you can try again.</p>';
+    document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
+    return;
+  }
+
+  // Dismissal. The citizen closed the window, but their UPI app may have
+  // completed the payment anyway -- which is why a capture is allowed to
+  // overrule a dismissal server-side. Offer the retry without the false
+  // reassurance.
+  if(payment.status === 'failed'){
+    status.hidden = false;
+    status.innerHTML = '<p class="error-text">You closed the payment window before it finished. ' +
+      'If your bank or UPI app did complete the payment, it will be applied automatically — ' +
+      'check your dashboard before paying again.</p>';
+    document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
+    return;
+  }
+
+  // Still reconciling. We do not know, so we do not guess -- and we do not
+  // hand back a Pay button that would start a second charge.
+  status.hidden = false;
+  status.innerHTML =
+    '<p><strong>Still confirming with your bank.</strong> This is taking longer than usual. ' +
+    'Your payment has not been lost — if money left your account it will be applied to this ' +
+    'application automatically. Please do not pay again. It is safe to close this page; your ' +
+    'dashboard will show the result.</p>' +
+    '<button class="btn ghost small" data-action="pay-recheck" data-payment-id="' +
+      escapeHtml(String(payment.id)) + '">Check again</button>';
+}
+
 async function runPayment(){
   document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = true; });
   var status = document.getElementById('pay-status');
@@ -574,30 +638,31 @@ async function runPayment(){
 
   try{
     var payment = await openCheckout({ applicationId: session.applicationId }, status);
-
-    if(payment.status === 'paid'){
-      status.hidden = false;
-      status.innerHTML = '<div class="stamp">PAYMENT<br>CONFIRMED</div>' +
-        '<p class="rec-id" style="text-align:center;">Application number: ' + session.referenceCode + '</p>' +
-        '<ul class="checklist payment-notifications">' +
-          '<li><span class="tick">✓</span><span><strong>Email sent successfully</strong><br><span class="hint">Receipt and appointment details sent to your email address on file.</span></span></li>' +
-          '<li><span class="tick">✓</span><span><strong>Mobile confirmation sent successfully</strong><br><span class="hint">SMS sent to ' + maskMobile(session.citizen.mobile_number) + '.</span></span></li>' +
-        '</ul>' +
-        '<button class="btn primary" data-action="goto-track">View application status</button>';
-      return;
-    }
-
-    // The gateway's own reason when it gave one ("Card declined"), rather than
-    // a generic failure the citizen cannot act on.
-    status.hidden = false;
-    status.innerHTML = '<p class="error-text">' +
-      escapeHtml(payment.failure_reason || 'This payment did not complete.') +
-      ' Nothing was charged, and you can try again.</p>';
-    document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
+    await renderPaymentOutcome(payment, status);
   } catch(err){
     status.hidden = false;
     status.innerHTML = '<p class="error-text">' + escapeHtml(err.message) + '</p>';
     document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
+  }
+}
+
+// The way out of a long reconcile. Hitting GET /api/payments/:id is also what
+// triggers the server-side reconcile against the gateway, so this button does
+// real work rather than just re-reading a stale row.
+async function recheckPayment(btn){
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  var status = document.getElementById('pay-status');
+  try{
+    var payment = await pollPayment(btn.getAttribute('data-payment-id'), status, 20000);
+    await renderPaymentOutcome(payment, status);
+  } catch(err){
+    status.hidden = false;
+    status.innerHTML = '<p class="error-text">' + escapeHtml(err.message) + '</p>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
   }
 }
 
@@ -869,8 +934,16 @@ async function payChallan(btn){
   try{
     var payment = await openCheckout({ challanId: btn.getAttribute('data-id') }, null);
     await loadAttention();
-    if(payment.status !== 'paid'){
-      alert('That payment did not complete, so nothing was charged. You can try again.');
+    if(payment.status === 'paid') return;
+    if(payment.status === 'failed' && payment.failure_reason){
+      alert(payment.failure_reason + ' Nothing was charged, and you can try again.');
+    } else if(payment.status === 'failed'){
+      alert('You closed the payment window before it finished. If your bank or UPI app did ' +
+            'complete the payment, it will be applied automatically — check your dashboard ' +
+            'before paying again.');
+    } else {
+      alert('Still confirming with your bank. Your payment has not been lost. Please do not pay ' +
+            'again — your dashboard will show the result shortly.');
     }
   } catch(err){
     alert(err.message);
@@ -1579,6 +1652,7 @@ async function handleAction(action, el){
     // — including "Pay now" on an incomplete payment, which is this project's
     // own headline problem.
     else if(action === 'pay-challan'){ await payChallan(el); }
+    else if(action === 'pay-recheck'){ await recheckPayment(el); }
     else if(action === 'start-renew'){ await startIntake('renew'); }
     else if(action === 'open-application'){ await openAttentionApplication(el); }
     else if(action === 'retry-attention'){ await loadAttention(); }

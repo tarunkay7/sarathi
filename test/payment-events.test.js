@@ -77,6 +77,25 @@ test('an unhandled event type changes nothing', () => {
   }
 });
 
+test('an abandoned attempt is released so the payable can be paid again', () => {
+  // A citizen who closes the browser mid-popup fires no dismissal. Without this
+  // the row holds the live-payment unique index forever, and for a challan that
+  // also blocks their licence forever.
+  const change = applyPaymentEvent({
+    payment: { id: 1, status: 'reconciling' },
+    event: { type: 'client.abandoned' },
+  });
+  assert.equal(change.status, 'failed');
+  assert.match(change.reason, /timed out/);
+});
+
+test('an abandoned event cannot undo a captured payment', () => {
+  assert.equal(
+    applyPaymentEvent({ payment: { id: 1, status: 'paid' }, event: { type: 'client.abandoned' } }),
+    null
+  );
+});
+
 test('an unknown method is passed through rather than dropped', () => {
   assert.equal(methodLabel('upi'), 'UPI');
   assert.equal(methodLabel('netbanking'), 'Net banking');

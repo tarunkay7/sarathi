@@ -48,6 +48,19 @@ function applyPaymentEvent({ payment, event }) {
     };
   }
 
+  // A citizen who closes the browser mid-popup fires no dismissal, so nothing
+  // else ever releases this row. Reachable only once the gateway has confirmed
+  // it holds no live attempt for the order, which is why it can say nothing was
+  // charged.
+  if (event.type === 'client.abandoned') {
+    return {
+      status: 'failed',
+      psp_payment_id: null,
+      method: null,
+      reason: 'This payment attempt timed out before it completed. Nothing was charged.',
+    };
+  }
+
   if (event.type === 'client.dismissed') {
     return {
       status: 'failed',
