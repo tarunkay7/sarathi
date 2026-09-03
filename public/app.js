@@ -783,10 +783,42 @@ function renderAttention(items){
   }).join('');
 }
 
+// Never allowed to reject. openDashboard() awaits this before the dashboard is
+// shown, and the syncing screen it would strand the citizen on has no logout
+// and no retry. The stale-id case is real, not theoretical: browser storage
+// outlives a rebuilt demo database, and the attention endpoint answers an
+// unknown citizen with a 404 where the applications endpoint answers with an
+// empty list. So a failure fails inside this panel, the way payChallan does,
+// and everything else on the dashboard still renders.
 async function loadAttention(){
-  var data = await api('/api/attention/citizen/' + session.citizen.id);
-  session.attention = data.items;
-  renderAttention(data.items);
+  var host = document.getElementById('attention-list');
+  try{
+    var data = await api('/api/attention/citizen/' + session.citizen.id);
+    session.attention = data.items;
+    renderAttention(data.items);
+  } catch(err){
+    session.attention = null;
+    document.getElementById('attention-count').textContent = 'Unavailable';
+    host.innerHTML = '<p class="att-clear">Could not check what needs your attention. ' +
+      'Nothing here is lost — this panel only reads records. ' +
+      '<button class="btn ghost small" data-action="retry-attention">Try again</button></p>';
+  }
+}
+
+// The attention panel knows only an application id. The "View status →" button
+// on the matching application card already carries every field openTrack needs,
+// so this finds that button and triggers the exact arm it would, rather than
+// building a second route to the same screen that could drift from the first.
+async function openAttentionApplication(el){
+  var id = el && el.getAttribute('data-id');
+  var card = /^\d+$/.test(String(id))
+    ? document.querySelector('#active-applications [data-action="goto-track"][data-app-id="' + id + '"]')
+    : null;
+  if(!card){
+    alert('That application is not on your dashboard any more. Refresh and try again.');
+    return;
+  }
+  await handleAction('goto-track', card);
 }
 
 // Same shape as downloadReceipt: disable and relabel before the await, but
@@ -923,9 +955,15 @@ function grievanceOutcome(g){
       (g.reference_code ? '<span class="grv-tag">' + escapeHtml(g.reference_code) + '</span>' : '') +
     '</div>' +
     '<p class="grv-reply">' + escapeHtml(g.citizen_reply) + '</p>' +
+    // Grounding covers the service rules as well as the citizen's own rows, so
+    // an answer may legitimately come from a rule rather than a record and this
+    // card can no longer name the source from a guess. It shows the one the
+    // server accepted, the same field the history row shows.
     '<p class="grv-foot">' +
       (g.answered_immediately
-        ? 'Answered from your application record — nothing is queued.'
+        ? (g.source && g.source !== 'none'
+            ? 'Answered from: ' + escapeHtml(g.source) + ' — nothing is queued.'
+            : 'Nothing is queued.')
         : 'Routed to the ' + escapeHtml(g.route_to) + (g.expected_by ? ' · reply due ' + formatDate(g.expected_by) : '')) +
     '</p>' +
   '</div>';
@@ -1500,7 +1538,14 @@ async function handleAction(action, el){
     else if(action === 'add-calendar'){ downloadIcs(); }
     else if(action === 'print-receipt'){ window.print(); }
     else if(action === 'download-receipt'){ await downloadReceipt(el); }
+    // The other two action types computeAttention emits. Without these arms the
+    // attention panel rendered four buttons out of five that did nothing at all
+    // — including "Pay now" on an incomplete payment, which is this project's
+    // own headline problem.
     else if(action === 'pay-challan'){ await payChallan(el); }
+    else if(action === 'start-renew'){ await startIntake('renew'); }
+    else if(action === 'open-application'){ await openAttentionApplication(el); }
+    else if(action === 'retry-attention'){ await loadAttention(); }
     else if(action === 'toggle-lang'){ document.body.classList.toggle('lang-hi'); }
     else if(action === 'font-inc'){ fontScale = Math.min(130, fontScale+10); applyFont(); }
     else if(action === 'font-dec'){ fontScale = Math.max(90, fontScale-10); applyFont(); }
