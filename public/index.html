@@ -706,5 +706,25 @@
      domain so the popup stays current with their gateway. -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script src="app.js?v=payments-2026-09-03b"></script>
+<!-- A browser or CDN holding an old app.js against this freshly served page
+     produces failures that look like a broken payment gateway: buttons that do
+     nothing, panels that never appear, "Cannot read properties of null". This
+     page is always fetched no-cache, so it can say so plainly instead of
+     leaving the citizen to guess. -->
+<script>
+(function(){
+  if (window.SARATHI_BUILD === 'payments-2026-09-03b') return;
+  var bar = document.createElement('div');
+  bar.className = 'stale-build';
+  bar.appendChild(document.createTextNode(
+    'This page is running an out-of-date version, so some buttons will not work.'
+  ));
+  var btn = document.createElement('button');
+  btn.textContent = 'Reload';
+  btn.onclick = function(){ location.reload(); };
+  bar.appendChild(btn);
+  document.body.appendChild(bar);
+})();
+</script>
 </body>
 </html>

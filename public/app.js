@@ -1732,3 +1732,8 @@ document.addEventListener('DOMContentLoaded', function(){
     syncAndShowDashboard();
   }
 });
+
+// Compared against the build string in index.html. index.html is served
+// no-cache, so that check always runs current logic even when this file is a
+// stale copy a browser or CDN held on to.
+window.SARATHI_BUILD = "payments-2026-09-03b";
