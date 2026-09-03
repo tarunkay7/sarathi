@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const asyncHandler = require('./asyncHandler');
 const receipt = require('./receipt');
+const { pendingChallan, BLOCKED_SERVICES } = require('./challans');
 
 const router = express.Router();
 
@@ -108,6 +109,17 @@ router.post('/', asyncHandler(async (req, res) => {
   const classes = String(vehicleClasses || '').trim();
   if (serviceKey === 'dl' && !classes) {
     return res.status(400).json({ error: 'Choose at least one vehicle class you are applying for.' });
+  }
+
+  // Surfaced on the dashboard long before this point; enforced here so it cannot
+  // be skipped by a client that simply does not render the warning.
+  if (BLOCKED_SERVICES.includes(serviceKey)) {
+    const challan = await pendingChallan(citizenId);
+    if (challan) {
+      return res.status(409).json({
+        error: `Challan ${challan.challan_number} for ₹${Math.round(challan.amount_cents / 100)} is still pending. Clear it and this application can go ahead.`,
+      });
+    }
   }
 
   if (dob) {
