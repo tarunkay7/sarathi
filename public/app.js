@@ -817,6 +817,17 @@ async function openDashboard(){
   document.getElementById('doc-dl-id').textContent = session.citizen.dl_number || '—';
   document.getElementById('doc-holder').textContent = session.citizen.name;
 
+  // The card used to hardcode an expiry date and a permanent "Renewal due"
+  // chip. Drive both from the record: no expiry on file (or one far off)
+  // means no chip, and an expiry already in the past reads as "Expired"
+  // rather than the more hopeful "Renewal due".
+  var expiry = session.citizen.dl_expires_on;
+  document.getElementById('doc-dl-expiry').textContent = expiry ? formatDate(expiry) : '—';
+  var chip = document.getElementById('doc-dl-chip');
+  var daysLeft = expiry ? Math.round((new Date(expiry) - Date.now()) / 86400000) : null;
+  chip.hidden = daysLeft === null || daysLeft > 60;
+  chip.textContent = daysLeft !== null && daysLeft < 0 ? 'Expired' : 'Renewal due';
+
   // You cannot renew or replace a licence you do not hold. Rather than offering
   // services that would dead-end, an account with no licence on record is shown
   // only the one application it can actually make.
