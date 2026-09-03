@@ -754,6 +754,41 @@ function maskMobile(mobile){
   return '+91 ' + mobile.slice(0, 2) + 'XXXXX' + mobile.slice(-3);
 }
 
+var ATTENTION_LABELS = { act: 'Act now', soon: 'Soon', info: 'Heads up' };
+
+// The empty state is the feature, so this panel never hides. "Nothing needs your
+// attention" is the whole posture stated outright.
+function renderAttention(items){
+  var host = document.getElementById('attention-list');
+  document.getElementById('attention-count').textContent =
+    items.length === 0 ? 'All clear' : items.length + (items.length === 1 ? ' item' : ' items');
+
+  if(!items.length){
+    host.innerHTML = '<p class="att-clear">✓ Nothing needs your attention. We will tell you when it does.</p>';
+    return;
+  }
+
+  host.innerHTML = items.map(function(item){
+    var action = item.action
+      ? '<button class="btn ghost small" data-action="' + escapeHtml(item.action.type) + '"' +
+        (item.action.id ? ' data-id="' + escapeHtml(String(item.action.id)) + '"' : '') + '>' +
+        escapeHtml(item.action.label) + '</button>'
+      : '';
+    return '<div class="att att-' + escapeHtml(item.severity) + '">' +
+      '<div class="att-head"><span class="att-sev">' + ATTENTION_LABELS[item.severity] + '</span>' +
+      '<span class="att-title">' + escapeHtml(item.title) + '</span></div>' +
+      '<p class="att-detail">' + escapeHtml(item.detail) + '</p>' +
+      '<div class="att-foot"><span class="att-source">Because: ' + escapeHtml(item.source) + '</span>' + action + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+async function loadAttention(){
+  var data = await api('/api/attention/citizen/' + session.citizen.id);
+  session.attention = data.items;
+  renderAttention(data.items);
+}
+
 async function openDashboard(){
   document.getElementById('dashboard-name').textContent = session.citizen.name;
   document.getElementById('dashboard-avatar').textContent = initials(session.citizen.name);
@@ -771,6 +806,8 @@ async function openDashboard(){
   document.querySelectorAll('.dash-side .svc-card').forEach(function(card){
     card.hidden = !holdsLicence && card.getAttribute('data-service') !== 'dl';
   });
+
+  await loadAttention();
 
   var data = await api('/api/applications/citizen/' + session.citizen.id);
 
@@ -1429,6 +1466,13 @@ async function handleAction(action, el){
     else if(action === 'add-calendar'){ downloadIcs(); }
     else if(action === 'print-receipt'){ window.print(); }
     else if(action === 'download-receipt'){ await downloadReceipt(el); }
+    else if(action === 'pay-challan'){
+      var challanId = el.getAttribute('data-id');
+      el.disabled = true;
+      el.textContent = 'Paying…';
+      await api('/api/challans/' + challanId + '/pay', { method:'POST' });
+      await loadAttention();
+    }
     else if(action === 'toggle-lang'){ document.body.classList.toggle('lang-hi'); }
     else if(action === 'font-inc'){ fontScale = Math.min(130, fontScale+10); applyFont(); }
     else if(action === 'font-dec'){ fontScale = Math.max(90, fontScale-10); applyFont(); }

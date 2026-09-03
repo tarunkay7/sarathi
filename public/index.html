@@ -191,6 +191,14 @@
 
     <div class="dash-grid">
       <div class="dash-main">
+        <div class="panel" id="attention-panel">
+          <div class="panel-head"><span class="panel-head-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a7 7 0 0 0-7 7c0 3-1 4.5-2 6h18c-1-1.5-2-3-2-6a7 7 0 0 0-7-7Z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg>Needs your attention</span> <span class="sub" id="attention-count">None</span></div>
+          <div class="panel-body">
+            <div id="attention-list"></div>
+            <p class="hint" id="attention-disclosure">In a live service these would also reach you by SMS. This prototype works them out when you open the page and sends nothing.</p>
+          </div>
+        </div>
+
         <!-- Shown instead of the licence cards when there is no licence on
              record yet: a card reading "Renewal due" over an empty number is
              worse than saying plainly that there is nothing here. -->
