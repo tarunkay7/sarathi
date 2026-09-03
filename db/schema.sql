@@ -223,3 +223,9 @@ CREATE TABLE IF NOT EXISTS challans (
 );
 
 CREATE INDEX IF NOT EXISTS challans_citizen_idx ON challans (citizen_id, status);
+
+-- What the triage answer was grounded in — a reference code or a named service
+-- rule, or "none" when it had neither and had to route to a human instead of
+-- guessing. Nullable-by-default TEXT so old rows (triaged before this column
+-- existed) simply have no source recorded.
+ALTER TABLE grievances ADD COLUMN IF NOT EXISTS source TEXT;

@@ -46,7 +46,7 @@ const CATEGORY_LABELS = {
 const TRIAGE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['category', 'severity', 'language', 'summary', 'citizen_reply', 'answered_immediately'],
+  required: ['category', 'severity', 'language', 'summary', 'citizen_reply', 'answered_immediately', 'source'],
   properties: {
     category: { type: 'string', enum: CATEGORIES },
     language: {
@@ -70,15 +70,37 @@ const TRIAGE_SCHEMA = {
       type: 'boolean',
       description: 'True only when the applications given already fully answer the complaint and no officer needs to act.',
     },
+    source: {
+      type: 'string',
+      description: 'What this answer was drawn from — a reference code from their applications, or the named service rule. Use "none" if the answer came from neither, in which case answered_immediately must be false.',
+    },
   },
 };
 
 // Everything the model is allowed to treat as fact. Built from the citizen's own
 // rows so a status answer quotes a real reference code and date rather than a
-// plausible-looking one.
-function buildFactSheet(citizen, applications) {
+// plausible-looking one, plus the service rules so a policy question has
+// something real to cite instead of the model guessing a plausible answer.
+function buildFactSheet(citizen, applications, services) {
+  const ruleLines = services.map((s) => {
+    const bits = [
+      `${s.title} (${s.form_number}): fee ₹${Math.round(s.fee_cents / 100)}`,
+      `usually ${s.expected_days} days`,
+      s.requires_slot ? `needs an RTO visit — carry: ${s.carry_items}` : 'no RTO visit needed',
+      s.prerequisite_note ? `requirement: ${s.prerequisite_note}` : null,
+      s.eligibility && s.eligibility.form1aMinAge
+        ? `medical certificate Form 1A required at age ${s.eligibility.form1aMinAge}+ or for a Transport class`
+        : null,
+    ];
+    return '- ' + bits.filter(Boolean).join('; ');
+  });
+
   if (!applications.length) {
-    return `${citizen.name} has no applications on record. Their RTO is ${citizen.rto}, ${citizen.state}.`;
+    return [
+      `${citizen.name} has no applications on record. Their RTO is ${citizen.rto}, ${citizen.state}.`,
+      'Service rules:',
+      ...ruleLines,
+    ].join('\n');
   }
   const lines = applications.map((a) => {
     const parts = [
@@ -96,6 +118,8 @@ function buildFactSheet(citizen, applications) {
     `Citizen: ${citizen.name}, RTO ${citizen.rto}, ${citizen.state}. Today is ${new Date().toISOString().slice(0, 10)}.`,
     'Their applications:',
     ...lines,
+    'Service rules:',
+    ...ruleLines,
   ].join('\n');
 }
 
@@ -109,6 +133,7 @@ const SYSTEM_PROMPT = [
   'Never claim to have contacted a real government system, and never ask for an Aadhaar number, OTP, card or bank detail.',
   'Write at a sixth-standard reading level. No jargon, no apologising twice, no filler.',
   'LANGUAGE. A citizen who complains in Telugu should not be answered in English. Identify the language they used and write citizen_reply in it, in that language\'s own script. The officer-facing summary is always English, because the desk reading it may not share the citizen\'s language. Leave reference codes, dates and amounts exactly as they appear — never transliterate or translate those.',
+  'GROUNDING. You may only answer from the facts and the service rules given. If a question is not covered by either — a policy the rules do not state, or anything about another agency — you may not answer it: set answered_immediately to false, set source to "none", and route it to a human. Guessing plausibly is the failure this rule exists to prevent.',
 ].join(' ');
 
 // Keyword triage, used when there is no API key or the model call fails. Coarse
@@ -134,6 +159,8 @@ function triageWithRules(body, spokenLanguage) {
     // unable to answer in rather than pretending English was the right choice.
     language: spokenLanguage || 'English',
     answered_immediately: false,
+    // The keyword match never reads a fact sheet, so it never has a source to name.
+    source: 'none',
   };
 }
 
@@ -237,7 +264,20 @@ router.post('/', asyncHandler(async (req, res) => {
     [citizen]
   );
 
-  const factSheet = buildFactSheet(citizenResult.rows[0], appsResult.rows);
+  // The four keys this app actually offers. The services table also still
+  // carries the stale 'address' / "Change of Address" row (₹200) — retired by
+  // commit 1a09de2 in favour of 'dl', but never deleted because an old
+  // application still references it via the service_key foreign key. Feeding
+  // it to the model would teach the fact sheet about a service the app does
+  // not offer, so it is filtered out here rather than left for the model to
+  // stumble on.
+  const rules = await pool.query(
+    `SELECT key, title, form_number, fee_cents, expected_days,
+            requires_slot, carry_items, prerequisite_note, eligibility
+     FROM services WHERE key IN ('renew','new','duplicate','dl') ORDER BY key`
+  );
+
+  const factSheet = buildFactSheet(citizenResult.rows[0], appsResult.rows, rules.rows);
 
   let triage;
   let triagedBy = 'openai';
@@ -262,14 +302,15 @@ router.post('/', asyncHandler(async (req, res) => {
   const inserted = await pool.query(
     `INSERT INTO grievances
        (ticket_code, citizen_id, application_id, body, category, severity, summary,
-        route_to, citizen_reply, answered_immediately, triaged_by, status, expected_by, language)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+        route_to, citizen_reply, answered_immediately, triaged_by, status, expected_by, language, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
     [
       makeTicketCode(), citizen, linkedApplication, text, category, severity,
       triage.summary, DESKS[category], triage.citizen_reply, answered, triagedBy,
       answered ? 'answered' : 'open',
       answered ? null : addWorkingDays(SLA_DAYS[severity]),
       String(triage.language || spokenLanguage || 'English').trim(),
+      String(triage.source || 'none').trim(),
     ]
   );
 

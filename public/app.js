@@ -950,6 +950,9 @@ function grievanceRow(g){
     // before, so a filed grievance was something they had to remember.
     '<blockquote class="grv-quote">' + escapeHtml(g.body) + '</blockquote>' +
     '<p class="grv-answer">' + escapeHtml(g.citizen_reply) + '</p>' +
+    (g.source && g.source !== 'none'
+      ? '<p class="grv-source">Answered from: ' + escapeHtml(g.source) + '</p>'
+      : '') +
     // The point of the whole feature in one row: the citizen is answered in the
     // language they used, and the desk still gets English. Only worth showing
     // when those two differ.
