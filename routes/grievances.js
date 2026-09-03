@@ -305,13 +305,24 @@ router.post('/', asyncHandler(async (req, res) => {
   const severity = SLA_DAYS[triage.severity] ? triage.severity : 'normal';
   const category = DESKS[triage.category] ? triage.category : 'other';
 
-  // The schema asks the model to set answered_immediately false whenever
-  // source is "none", but a prompt instruction is not a guarantee — testing
-  // showed the model does not reliably honour it, sometimes marking an
-  // ungrounded guess as answered anyway. The same discipline this app applies
-  // to double payment (a database constraint, not a disabled button) applies
-  // here: the invariant is enforced in code, not requested in English.
-  const grounded = Boolean(triage.source) && String(triage.source).trim().toLowerCase() !== 'none';
+  // The model may name a source, but testing showed it will sometimes write a
+  // real-looking one — a reference code that does exist — to back a claim
+  // that code's facts do not actually support (citation-laundering). This
+  // server cannot verify the claim's content against the source without a
+  // second model call, which is out of scope here; what it CAN verify
+  // structurally is that the name is one of the sources the model was
+  // actually shown, not "none", not a vague phrase, and not invented outright.
+  // That closes the invented/none cases; a real code cited for an unrelated
+  // claim is a known, accepted, disclosed gap this check does not close.
+  const legitimateSources = new Set();
+  appsResult.rows.forEach((a) => legitimateSources.add(String(a.reference_code).trim().toLowerCase()));
+  rules.rows.forEach((s) => {
+    legitimateSources.add(String(s.title).trim().toLowerCase());
+    legitimateSources.add(String(s.key).trim().toLowerCase());
+    if (s.form_number) legitimateSources.add(String(s.form_number).trim().toLowerCase());
+  });
+  const claimedSource = String(triage.source || '').trim().toLowerCase();
+  const grounded = claimedSource !== '' && claimedSource !== 'none' && legitimateSources.has(claimedSource);
   const answered = grounded && Boolean(triage.answered_immediately);
   // An ungrounded question must never reach the citizen as an answer, however
   // plausible the model's prose reads. Discarded in favour of the same fixed
