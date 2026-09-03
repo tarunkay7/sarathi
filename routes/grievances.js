@@ -203,6 +203,42 @@ async function triageWithOpenAI(body, factSheet, spokenLanguage) {
   return JSON.parse(content);
 }
 
+// Does the source the model named actually exist among the things it was shown?
+//
+// The model may name a source, but testing showed it will sometimes write a
+// real-looking one — a reference code that does exist — to back a claim that
+// code's facts do not actually support (citation-laundering). This server
+// cannot verify the claim's content against the source without a second model
+// call, which is out of scope here; what it CAN verify structurally is that the
+// name is one of the sources the model was actually shown, not "none", not a
+// vague phrase, and not invented outright. That closes the invented/none cases;
+// a real code cited for an unrelated claim is a known, accepted, disclosed gap
+// this check does not close.
+//
+// Matching is exact after trimming and lowercasing — deliberately not a
+// substring or prefix match. Service keys are single words like 'new', 'dl' and
+// 'renew', so any looser comparison would accept almost any sentence that
+// happened to contain one of them. The cost is a false negative: a model that
+// writes "application TS-DL-2026-1200" instead of the bare code is treated as
+// ungrounded and its question goes to a human. That is the direction to fail
+// in — an unanswered question is recoverable, a laundered citation is not.
+function isGrounded(claimedSource, applications = [], services = []) {
+  const claimed = String(claimedSource == null ? '' : claimedSource).trim().toLowerCase();
+  if (claimed === '' || claimed === 'none') return false;
+
+  const legitimate = new Set();
+  applications.forEach((a) => {
+    if (a && a.reference_code) legitimate.add(String(a.reference_code).trim().toLowerCase());
+  });
+  services.forEach((s) => {
+    if (!s) return;
+    if (s.title) legitimate.add(String(s.title).trim().toLowerCase());
+    if (s.key) legitimate.add(String(s.key).trim().toLowerCase());
+    if (s.form_number) legitimate.add(String(s.form_number).trim().toLowerCase());
+  });
+  return legitimate.has(claimed);
+}
+
 function addWorkingDays(days) {
   const d = new Date();
   let added = 0;
@@ -305,24 +341,7 @@ router.post('/', asyncHandler(async (req, res) => {
   const severity = SLA_DAYS[triage.severity] ? triage.severity : 'normal';
   const category = DESKS[triage.category] ? triage.category : 'other';
 
-  // The model may name a source, but testing showed it will sometimes write a
-  // real-looking one — a reference code that does exist — to back a claim
-  // that code's facts do not actually support (citation-laundering). This
-  // server cannot verify the claim's content against the source without a
-  // second model call, which is out of scope here; what it CAN verify
-  // structurally is that the name is one of the sources the model was
-  // actually shown, not "none", not a vague phrase, and not invented outright.
-  // That closes the invented/none cases; a real code cited for an unrelated
-  // claim is a known, accepted, disclosed gap this check does not close.
-  const legitimateSources = new Set();
-  appsResult.rows.forEach((a) => legitimateSources.add(String(a.reference_code).trim().toLowerCase()));
-  rules.rows.forEach((s) => {
-    legitimateSources.add(String(s.title).trim().toLowerCase());
-    legitimateSources.add(String(s.key).trim().toLowerCase());
-    if (s.form_number) legitimateSources.add(String(s.form_number).trim().toLowerCase());
-  });
-  const claimedSource = String(triage.source || '').trim().toLowerCase();
-  const grounded = claimedSource !== '' && claimedSource !== 'none' && legitimateSources.has(claimedSource);
+  const grounded = isGrounded(triage.source, appsResult.rows, rules.rows);
   const answered = grounded && Boolean(triage.answered_immediately);
   // An ungrounded question must never reach the citizen as an answer, however
   // plausible the model's prose reads. Discarded in favour of the same fixed
@@ -342,7 +361,11 @@ router.post('/', asyncHandler(async (req, res) => {
       answered ? 'answered' : 'open',
       answered ? null : addWorkingDays(SLA_DAYS[severity]),
       String(triage.language || spokenLanguage || 'English').trim(),
-      String(triage.source || 'none').trim(),
+      // Only a source the guard accepted is stored. The dashboard renders this
+      // column as "Answered from: …", so persisting a claim the guard rejected
+      // printed the rejected citation directly under the routing notice — the
+      // one line meant to be visible proof of grounding, proving the opposite.
+      grounded ? String(triage.source).trim() : 'none',
     ]
   );
 
@@ -377,3 +400,7 @@ router.get('/citizen/:id', asyncHandler(async (req, res) => {
 }));
 
 module.exports = router;
+// Exported for tests. The grounding guard is the most intricate logic in this
+// file and needs no database to exercise — it is set membership over two row
+// arrays plus a claimed string.
+module.exports.isGrounded = isGrounded;
