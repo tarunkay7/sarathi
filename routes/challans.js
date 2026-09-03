@@ -36,23 +36,6 @@ router.get('/citizen/:id', asyncHandler(async (req, res) => {
   res.json({ challans: result.rows });
 }));
 
-// Not a row in payments: that table requires an application_id and a challan has
-// none. The status guard makes this idempotent — a second call matches nothing.
-router.post('/:id/pay', asyncHandler(async (req, res) => {
-  const id = requireInteger(req.params.id, res);
-  if (id === null) return;
-  const settled = await pool.query(
-    `UPDATE challans SET status = 'paid', paid_at = now()
-     WHERE id = $1 AND status = 'pending' RETURNING *`,
-    [id]
-  );
-  if (settled.rows[0]) return res.json({ challan: settled.rows[0] });
-
-  const existing = await pool.query('SELECT * FROM challans WHERE id = $1', [id]);
-  if (!existing.rows[0]) return res.status(404).json({ error: 'Not found' });
-  res.json({ challan: existing.rows[0], alreadyPaid: true });
-}));
-
 module.exports = router;
 module.exports.pendingChallan = pendingChallan;
 module.exports.BLOCKED_SERVICES = BLOCKED_SERVICES;

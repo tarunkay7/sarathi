@@ -184,3 +184,39 @@ test('act items sort above soon items', () => {
   assert.equal(items[0].severity, 'act');
   assert.equal(items[items.length - 1].severity, 'soon');
 });
+
+test('a challan with a payment in flight stops asking to be paid again', () => {
+  // The challan is still 'pending' until the webhook lands, so the application
+  // blocker correctly keeps blocking. What changes is that we stop handing the
+  // citizen a button that would start a second payment.
+  const items = computeAttention({
+    citizen: citizen(),
+    applications: [],
+    challans: [{
+      id: 7, challan_number: 'CH-2026-8841', offence: 'Signal violation',
+      issued_on: '2026-08-12', amount_cents: 100000, status: 'pending',
+      payment_status: 'reconciling',
+    }],
+    now: NOW,
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, 'challan_pending');
+  assert.equal(items[0].severity, 'soon');
+  assert.equal(items[0].action, null);
+  assert.match(items[0].detail, /confirming with your bank/i);
+});
+
+test('a challan with a failed payment behind it can still be paid', () => {
+  const items = computeAttention({
+    citizen: citizen(),
+    applications: [],
+    challans: [{
+      id: 7, challan_number: 'CH-2026-8841', offence: 'Signal violation',
+      issued_on: '2026-08-12', amount_cents: 100000, status: 'pending',
+      payment_status: 'failed',
+    }],
+    now: NOW,
+  });
+  assert.equal(items[0].severity, 'act');
+  assert.equal(items[0].action.type, 'pay-challan');
+});

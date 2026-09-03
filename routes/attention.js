@@ -34,6 +34,23 @@ function computeAttention({ citizen, applications = [], challans = [], now = new
 
   for (const challan of challans) {
     if (challan.status !== 'pending') continue;
+
+    // A payment already in flight against this challan. The challan stays
+    // pending until the webhook lands, so the application blocker keeps
+    // blocking -- but offering a Pay button here would invite a second
+    // payment for a fine that is already being settled.
+    if (challan.payment_status === 'reconciling') {
+      items.push({
+        kind: 'challan_pending',
+        severity: 'soon',
+        title: `${rupees(challan.amount_cents)} challan pending`,
+        detail: 'Payment received, confirming with your bank. This usually takes a few seconds and you do not need to pay again.',
+        action: null,
+        source: `challan ${challan.challan_number}`,
+      });
+      continue;
+    }
+
     items.push({
       kind: 'challan_pending',
       severity: 'act',
@@ -142,7 +159,12 @@ router.get('/citizen/:id', asyncHandler(async (req, res) => {
   );
 
   const challans = await pool.query(
-    'SELECT * FROM challans WHERE citizen_id = $1 AND status = $2',
+    `SELECT c.*,
+            (SELECT p.status FROM payments p
+              WHERE p.challan_id = c.id AND p.status IN ('reconciling','paid')
+              LIMIT 1) AS payment_status
+       FROM challans c
+      WHERE c.citizen_id = $1 AND c.status = $2`,
     [id, 'pending']
   );
 
