@@ -229,3 +229,37 @@ CREATE INDEX IF NOT EXISTS challans_citizen_idx ON challans (citizen_id, status)
 -- guessing. Nullable-by-default TEXT so old rows (triaged before this column
 -- existed) simply have no source recorded.
 ALTER TABLE grievances ADD COLUMN IF NOT EXISTS source TEXT;
+
+-- Payments now cover two kinds of payable: an application fee and a challan.
+-- Exactly one of the two id columns is set on any row, which the CHECK below
+-- enforces rather than trusting callers. method becomes nullable because at
+-- order-creation time nobody knows how the citizen will choose to pay --
+-- Razorpay reports that on capture.
+ALTER TABLE payments ALTER COLUMN application_id DROP NOT NULL;
+ALTER TABLE payments ALTER COLUMN method         DROP NOT NULL;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS challan_id      INTEGER REFERENCES challans(id);
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS psp_order_id    TEXT;
+-- Why the gateway said no, so the citizen reads "Card declined" rather than a
+-- generic failure. The gateway's payment id goes in the existing bank_ref,
+-- which was reserved for exactly that and never populated by the mock flow.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS failure_reason  TEXT;
+
+-- ADD CONSTRAINT has no IF NOT EXISTS, and this file is re-run on every
+-- deploy, so the second migration would fail without this wrapper.
+DO $$ BEGIN
+  ALTER TABLE payments ADD CONSTRAINT payments_one_payable
+    CHECK ((application_id IS NULL) <> (challan_id IS NULL));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- One live payment per payable, per kind. This is what actually makes a second
+-- tap return the charge already in flight rather than starting another one.
+DROP INDEX IF EXISTS payments_one_live_per_application;
+CREATE UNIQUE INDEX IF NOT EXISTS payments_one_live_per_application ON payments (application_id)
+  WHERE application_id IS NOT NULL AND status IN ('reconciling','paid');
+CREATE UNIQUE INDEX IF NOT EXISTS payments_one_live_per_challan ON payments (challan_id)
+  WHERE challan_id IS NOT NULL AND status IN ('reconciling','paid');
+
+-- Razorpay retries webhook deliveries for 24 hours. A unique order id is what
+-- makes a replayed delivery a no-op instead of a second payment row.
+CREATE UNIQUE INDEX IF NOT EXISTS payments_psp_order ON payments (psp_order_id)
+  WHERE psp_order_id IS NOT NULL;

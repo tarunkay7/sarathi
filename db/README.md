@@ -57,7 +57,7 @@ One row per payment attempt against an application. An application can have more
 | `amount_cents` | integer | |
 | `method` | text | `UPI`, `Card`, or `Net banking` |
 | `status` | text | `pending` → `reconciling` → `paid` (or `refund_in_progress` / `failed`) |
-| `bank_ref` | text | reserved for a real gateway reference, unused by the mock flow |
+| `bank_ref` | text | the payment gateway's own payment id (`pay_…`), set when a payment is captured |
 | `created_at`, `confirmed_at` | timestamptz | |
 
 ### `timeline_events`
