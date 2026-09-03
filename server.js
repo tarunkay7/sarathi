@@ -10,6 +10,7 @@ const documentRoutes = require('./routes/documents');
 const grievanceRoutes = require('./routes/grievances');
 const transcriptionRoutes = require('./routes/transcriptions');
 const challanRoutes = require('./routes/challans');
+const attentionRoutes = require('./routes/attention');
 
 const app = express();
 app.use(express.json());
@@ -27,6 +28,7 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/grievances', grievanceRoutes);
 app.use('/api/transcriptions', transcriptionRoutes);
 app.use('/api/challans', challanRoutes);
+app.use('/api/attention', attentionRoutes);
 
 app.use(express.static(path.join(__dirname, 'public')));
 

@@ -5,6 +5,12 @@
 // a database — DATABASE_URL points at the live instance both deployments serve
 // from, so no test may go near it.
 
+const express = require('express');
+const pool = require('../db/pool');
+const asyncHandler = require('./asyncHandler');
+
+const router = express.Router();
+
 function rupees(cents) {
   return '₹' + Math.round(cents / 100).toLocaleString('en-IN');
 }
@@ -91,4 +97,42 @@ function computeAttention({ citizen, applications = [], challans = [], now = new
   return items.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
 
-module.exports = { computeAttention };
+router.get('/citizen/:id', asyncHandler(async (req, res) => {
+  if (!/^\d+$/.test(String(req.params.id))) {
+    return res.status(400).json({ error: 'Invalid id' });
+  }
+  const id = Number(req.params.id);
+
+  const citizenResult = await pool.query('SELECT * FROM citizens WHERE id = $1', [id]);
+  const citizen = citizenResult.rows[0];
+  if (!citizen) return res.status(404).json({ error: 'Not found' });
+
+  const applications = await pool.query(
+    `SELECT a.id, a.reference_code, a.expected_by, a.slot_at,
+            s.title AS service_title, s.fee_cents, s.carry_items,
+            (SELECT p.status FROM payments p
+              WHERE p.application_id = a.id AND p.status IN ('reconciling','paid')
+              LIMIT 1) AS payment_status
+     FROM applications a
+     JOIN services s ON s.key = a.service_key
+     WHERE a.citizen_id = $1 AND a.status <> 'approved'`,
+    [id]
+  );
+
+  const challans = await pool.query(
+    'SELECT * FROM challans WHERE citizen_id = $1 AND status = $2',
+    [id, 'pending']
+  );
+
+  res.json({
+    items: computeAttention({
+      citizen,
+      applications: applications.rows,
+      challans: challans.rows,
+      now: new Date(),
+    }),
+  });
+}));
+
+module.exports = router;
+module.exports.computeAttention = computeAttention;
