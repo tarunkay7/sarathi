@@ -198,6 +198,28 @@ async function main() {
     console.log('Seeded 1 pending challan for the demo account.');
   }
 
+  // citizens.dl_expires_on had two readers and no writer, so the expiring- and
+  // expired-licence items could never fire for a real citizen and every doc
+  // card showed an em-dash for "Valid till". The seed has to carry both shapes
+  // the design asked for: the demo persona holds no licence and keeps a NULL
+  // expiry (so it is deliberately not set below), and this licence-holding
+  // citizen carries one inside the 60-day renewal window so the attention
+  // panel has something real to point at.
+  //
+  // Computed relative to today rather than written as a literal date, so a
+  // fixture that reads "expiring soon" cannot quietly become "expired two
+  // months ago" the next time someone opens the demo. Guarded by mobile number
+  // because ids differ between the local and deployed databases.
+  const withLicence = await pool.query(
+    `UPDATE citizens SET dl_expires_on = CURRENT_DATE + INTERVAL '24 days'
+     WHERE mobile_number = $1 AND dl_number IS NOT NULL
+     RETURNING to_char(dl_expires_on, 'YYYY-MM-DD') AS expires_on`,
+    ['9876543210']
+  );
+  if (withLicence.rows[0]) {
+    console.log(`Seeded a licence expiry inside 60 days (${withLicence.rows[0].expires_on}) for 9876543210.`);
+  }
+
   await pool.end();
 }
 
