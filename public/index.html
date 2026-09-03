@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700&family=Mulish:wght@500;600;700;800&family=Mukta:wght@400;500;600;700&family=Basic&family=Saira:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=payments-2026-09-03">
+<link rel="stylesheet" href="styles.css?v=payments-2026-09-03b">
 </head>
 <body>
 
@@ -576,6 +576,19 @@
     <h1>Application Status</h1>
     <p class="lead">Tracked automatically under your account — no application number to re-enter.</p>
 
+    <!-- Paying moved into the intake wizard, which you only reach by starting a
+         NEW application. An application left unpaid therefore had nowhere to be
+         paid from: the dashboard offered "Pay now", sent the citizen here, and
+         here had no button. This is that button. -->
+    <div class="panel" id="track-pay-panel" hidden>
+      <div class="panel-head"><span class="panel-head-main">Fee not paid yet</span> <span class="sub" id="track-pay-fee">₹0</span></div>
+      <div class="panel-body">
+        <p class="pay-inline-assure">Every payment attempt is protected — you cannot be charged twice.</p>
+        <button class="btn primary pay-trigger" data-action="pay-application" id="track-pay-button">Pay securely</button>
+        <div id="track-pay-status" hidden aria-live="polite"></div>
+      </div>
+    </div>
+
     <header class="receipt-print-only receipt-print-header">
       <div>
         <div class="receipt-print-kicker">Sarathi · concept redesign</div>
@@ -692,6 +705,6 @@
 <!-- Razorpay does not permit self-hosting checkout.js; it must load from their
      domain so the popup stays current with their gateway. -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-<script src="app.js?v=payments-2026-09-03"></script>
+<script src="app.js?v=payments-2026-09-03b"></script>
 </body>
 </html>

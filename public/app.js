@@ -631,9 +631,12 @@ async function renderPaymentOutcome(payment, status){
       escapeHtml(String(payment.id)) + '">Check again</button>';
 }
 
-async function runPayment(){
+// statusEl is passed in because there are two places a fee can be paid from:
+// the intake wizard's last step, and the status screen of an application that
+// was left unpaid. They own different status panels.
+async function runPayment(statusEl){
   document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = true; });
-  var status = document.getElementById('pay-status');
+  var status = statusEl || document.getElementById('pay-status');
   status.hidden = true;
   status.innerHTML = '';
 
@@ -690,6 +693,24 @@ function renderTrackScreen(){
   var service = session.service;
 
   document.getElementById('track-id').textContent = application.reference_code;
+
+  // 'details' is the status an application sits at until a payment settles, so
+  // it is exactly the set that still needs paying. Reset the button and panel
+  // on every render: a previous attempt on this screen left the button
+  // disabled, and nothing else re-enables it.
+  var payPanel = document.getElementById('track-pay-panel');
+  var unpaid = application.status === 'details';
+  payPanel.hidden = !unpaid;
+  if(unpaid){
+    var fee = rupees(service.fee_cents);
+    document.getElementById('track-pay-fee').textContent = fee;
+    var payBtn = document.getElementById('track-pay-button');
+    payBtn.textContent = 'Pay ' + fee + ' securely';
+    payBtn.disabled = false;
+    var trackStatus = document.getElementById('track-pay-status');
+    trackStatus.hidden = true;
+    trackStatus.innerHTML = '';
+  }
 
   var stages = ['stage-submitted','stage-review','stage-approved'];
   var idx = stageIndex(application.status);
@@ -1583,7 +1604,13 @@ async function handleAction(action, el){
         ackRow.classList.add('ack-missing');
         return;
       }
-      await runPayment();
+      await runPayment(document.getElementById('pay-status'));
+    }
+    // Paying an application that was started earlier and left unpaid. The
+    // intake wizard's slot and road-safety checks do not apply here: they were
+    // already answered when the application was created.
+    else if(action === 'pay-application'){
+      await runPayment(document.getElementById('track-pay-status'));
     }
     else if(action === 'goto-track'){
       if(!session.applicationId && !(el && el.dataset && el.dataset.appId)){
