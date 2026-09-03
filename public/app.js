@@ -581,9 +581,6 @@ async function pollPayment(paymentId, statusEl, timeoutMs){
 // differently. Nothing here asserts an outcome the server has not given.
 async function renderPaymentOutcome(payment, status){
   if(payment.status === 'paid'){
-    // The only truthful source for the receipt's "Payment method": settle()
-    // stores whatever Razorpay itself reported for this payment.
-    session.lastPaymentMethod = payment.method || null;
     status.hidden = false;
     status.innerHTML = '<div class="stamp">PAYMENT<br>CONFIRMED</div>' +
       '<p class="rec-id" style="text-align:center;">Application number: ' + session.referenceCode + '</p>' +
@@ -595,24 +592,28 @@ async function renderPaymentOutcome(payment, status){
     return;
   }
 
-  // An explicit gateway failure is the only outcome where we can promise
-  // nothing was charged.
-  if(payment.status === 'failed' && payment.failure_reason){
+  // The gateway attempted this payment and reported it failed. bank_ref holds
+  // its payment id, and it is set only when Razorpay actually told us
+  // something -- a dismissal or a timeout leaves it null. This is the only
+  // outcome where "nothing was charged" is ours to promise.
+  if(payment.status === 'failed' && payment.bank_ref){
     status.hidden = false;
-    status.innerHTML = '<p class="error-text">' + escapeHtml(payment.failure_reason) +
+    status.innerHTML = '<p class="error-text">' + escapeHtml(payment.failure_reason || 'This payment did not go through.') +
       ' Nothing was charged, and you can try again.</p>';
     document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
     return;
   }
 
-  // Dismissal. The citizen closed the window, but their UPI app may have
-  // completed the payment anyway -- which is why a capture is allowed to
-  // overrule a dismissal server-side. Offer the retry without the false
-  // reassurance.
+  // Dismissed or timed out. We never heard an outcome from the gateway, and
+  // the citizen's UPI app may have completed the payment after they closed
+  // the window -- which is exactly why a capture can overrule a dismissal
+  // server-side. Offer the retry, but promise nothing about their money.
+  // Deliberately ignores failure_reason: it would append a second, weaker
+  // sentence saying the same thing.
   if(payment.status === 'failed'){
     status.hidden = false;
-    status.innerHTML = '<p class="error-text">You closed the payment window before it finished. ' +
-      'If your bank or UPI app did complete the payment, it will be applied automatically — ' +
+    status.innerHTML = '<p class="error-text">This payment was not completed. ' +
+      'If your bank or UPI app did take the money, it will be applied automatically — ' +
       'check your dashboard before paying again.</p>';
     document.querySelectorAll('.pay-trigger').forEach(function(b){ b.disabled = false; });
     return;
@@ -658,8 +659,13 @@ async function recheckPayment(btn){
     var payment = await pollPayment(btn.getAttribute('data-payment-id'), status, 20000);
     await renderPaymentOutcome(payment, status);
   } catch(err){
-    status.hidden = false;
-    status.innerHTML = '<p class="error-text">' + escapeHtml(err.message) + '</p>';
+    // Appended, not assigned: replacing the panel would delete this button and
+    // the "please do not pay again" text with it, leaving a page reload as the
+    // only way out of a reconcile.
+    var note = document.createElement('p');
+    note.className = 'error-text';
+    note.textContent = 'Could not check just now: ' + err.message;
+    status.appendChild(note);
   } finally {
     btn.disabled = false;
     btn.textContent = original;
@@ -726,7 +732,10 @@ function renderTrackScreen(){
   document.getElementById('receipt-service').textContent = service.title;
   document.getElementById('receipt-ref').textContent = application.reference_code;
   document.getElementById('receipt-amount').textContent = rupees(service.fee_cents);
-  document.getElementById('receipt-method').textContent = session.lastPaymentMethod || '—';
+  // Per-application, not per-session. A session-global "last method" renders
+  // application A's method on application B's receipt, which is worse than the
+  // dash it used to show. This is the same row the PDF receipt reads.
+  document.getElementById('receipt-method').textContent = application.payment_method || '—';
   document.getElementById('receipt-rto').textContent = session.citizen.state + ' · ' + session.citizen.rto;
   document.getElementById('receipt-datetime').textContent = payEvent ? formatDateTime(payEvent.occurred_at) : '—';
 
@@ -935,12 +944,12 @@ async function payChallan(btn){
     var payment = await openCheckout({ challanId: btn.getAttribute('data-id') }, null);
     await loadAttention();
     if(payment.status === 'paid') return;
-    if(payment.status === 'failed' && payment.failure_reason){
-      alert(payment.failure_reason + ' Nothing was charged, and you can try again.');
+    if(payment.status === 'failed' && payment.bank_ref){
+      alert((payment.failure_reason || 'This payment did not go through.') +
+            ' Nothing was charged, and you can try again.');
     } else if(payment.status === 'failed'){
-      alert('You closed the payment window before it finished. If your bank or UPI app did ' +
-            'complete the payment, it will be applied automatically — check your dashboard ' +
-            'before paying again.');
+      alert('This payment was not completed. If your bank or UPI app did take the money, it ' +
+            'will be applied automatically — check your dashboard before paying again.');
     } else {
       alert('Still confirming with your bank. Your payment has not been lost. Please do not pay ' +
             'again — your dashboard will show the result shortly.');

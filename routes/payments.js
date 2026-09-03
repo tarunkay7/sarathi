@@ -244,7 +244,10 @@ async function reconcile(payment) {
   // Otherwise, once enough time has passed that nobody is still paying, release
   // the payable -- a row stuck in 'reconciling' holds the unique index and
   // would block this challan or application for good.
-  const holding = items.some((p) => p.status === 'authorized' || p.status === 'created');
+  // 'refunded' counts as holding too: a captured-then-refunded attempt is one
+  // the gateway did act on, and calling that abandoned would be a money claim
+  // we have no basis for.
+  const holding = items.some((p) => ['authorized', 'created', 'refunded'].includes(p.status));
   const age = Date.now() - new Date(payment.created_at).getTime();
   if (!holding && age > ABANDON_AFTER_MS) {
     return settle(payment, { type: 'client.abandoned' });
@@ -256,23 +259,29 @@ async function reconcile(payment) {
 // entered for their payment. The dashboard is where they come back, so the
 // attention endpoint sweeps their stale attempts on load.
 async function reconcileStaleForCitizen(citizenId) {
-  const stale = await pool.query(
-    `SELECT p.* FROM payments p
-       LEFT JOIN applications a ON a.id = p.application_id
-       LEFT JOIN challans     c ON c.id = p.challan_id
-      WHERE p.status = 'reconciling'
-        AND p.created_at < now() - interval '8 seconds'
-        AND COALESCE(a.citizen_id, c.citizen_id) = $1`,
-    [citizenId]
-  );
-  for (const payment of stale.rows) {
-    if (!mayReconcile(payment.id)) continue;
-    try {
-      await reconcile(payment);
-    } catch (err) {
-      // Never let a sweep break the dashboard the citizen is trying to read.
-      console.warn(`[payments] stale reconcile failed for ${payment.id}: ${err.message}`);
+  try {
+    const stale = await pool.query(
+      `SELECT p.* FROM payments p
+         LEFT JOIN applications a ON a.id = p.application_id
+         LEFT JOIN challans     c ON c.id = p.challan_id
+        WHERE p.status = 'reconciling'
+          AND p.created_at < now() - interval '8 seconds'
+          AND COALESCE(a.citizen_id, c.citizen_id) = $1`,
+      [citizenId]
+    );
+    for (const payment of stale.rows) {
+      if (!mayReconcile(payment.id)) continue;
+      try {
+        await reconcile(payment);
+      } catch (err) {
+        // Never let a sweep break the dashboard the citizen is trying to read.
+        console.warn(`[payments] stale reconcile failed for ${payment.id}: ${err.message}`);
+      }
     }
+  } catch (err) {
+    // The dashboard is what a citizen comes back to. A sweep that cannot run is
+    // a missed recovery, not a reason to deny them the page.
+    console.warn(`[payments] stale sweep failed for citizen ${citizenId}: ${err.message}`);
   }
 }
 

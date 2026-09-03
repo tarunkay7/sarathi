@@ -27,9 +27,14 @@ function authHeader() {
   return 'Basic ' + Buffer.from(pair).toString('base64');
 }
 
+// Every call here sits in a request path a citizen is waiting on, including the
+// dashboard sweep. A gateway that hangs must not hang the page.
+const CALL_TIMEOUT_MS = 6000;
+
 async function call(path, init) {
   const res = await fetch(API + path, {
     ...init,
+    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     headers: { Authorization: authHeader(), 'Content-Type': 'application/json', ...(init && init.headers) },
   });
   const text = await res.text();
